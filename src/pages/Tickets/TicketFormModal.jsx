@@ -192,7 +192,7 @@ const TicketFormModal = ({
 
     const handleCopyLink = () => {
         const siteUrl = import.meta.env.REACT_APP_MAIN_SITE_URL || window.location.origin;
-        const link = `${siteUrl}/dashboard/manage-tickets`;
+        const link = `${siteUrl}/dashboard/manage-tickets/view/${editingTicketId}`;
 
         navigator.clipboard.writeText(link).then(() => {
             setCopied(true);
@@ -321,21 +321,19 @@ const TicketFormModal = ({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4 mt-2">
-                        <div className='grid grid-cols-2 gap-4'>
-                            <CustomSelect
-                                name="project_id"
-                                control={control}
-                                label="Project"
-                                options={projects}
-                                rules={{ required: "Project is required" }}
-                            />
-                            <CustomInput
-                                name="title"
-                                control={control}
-                                label="Ticket Title"
-                                rules={{ required: "Ticket title is required" }}
-                            />
-                        </div>
+                        <CustomSelect
+                            name="project_id"
+                            control={control}
+                            label="Project"
+                            options={projects}
+                            rules={{ required: "Project is required" }}
+                        />
+                        <CustomInput
+                            name="title"
+                            control={control}
+                            label="Ticket Title"
+                            rules={{ required: "Ticket title is required" }}
+                        />
 
                         <RichTextEditor
                             name="description"
@@ -423,7 +421,7 @@ const TicketFormModal = ({
                                     <CustomInput
                                         name="working_hours"
                                         control={control}
-                                        label="Total Working Hours"
+                                        label="Estimated Working Hours"
                                         onChange={(e, onChange) => {
                                             let value = e.target.value;
 

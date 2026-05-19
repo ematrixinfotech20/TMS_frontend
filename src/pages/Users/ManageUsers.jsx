@@ -24,7 +24,8 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
     const rolesMap = {
         1: { name: 'Administrator', color: 'error' },
         2: { name: 'Developer', color: 'info' },
-        3: { name: 'Customer', color: 'default' }
+        3: { name: 'Customer', color: 'default' },
+        5: { name: 'Manager', color: 'success' }
     };
 
     const fetchUsers = async () => {

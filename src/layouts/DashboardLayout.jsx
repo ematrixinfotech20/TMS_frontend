@@ -30,7 +30,7 @@ const iconMap = {
     "Dashboard": faChartPie,
     "Manage Department": faBuilding,
     "Manage Project": faTasks,
-    "Manage Status": faInfoCircle,
+    "Manage Ticket Status": faInfoCircle,
     "Manage Tickets": faTicketAlt,
     "Manage User": faUsers,
     "Manage Role": faUserShield,
@@ -102,7 +102,6 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
 
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
     const toggleMobileSidebar = () => setMobileOpen(!isMobileOpen);
-
     return (
         <div className="flex h-screen bg-[#FAFBFC] overflow-hidden text-[#172B4D]">
 
@@ -117,8 +116,8 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
             {/* Sidebar Architecture */}
             <aside
                 className={`fixed inset-y-0 left-0 z-30 bg-white border-r border-[#DFE1E6] transform transition-all duration-300 ease-in-out lg:relative 
-          ${isSidebarOpen ? 'w-64' : 'w-20'} 
-          ${isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'}
+          ${isSidebarOpen ? 'w-72' : 'w-20'} 
+          ${isMobileOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'}
           flex flex-col shadow-[2px_0_8px_rgba(0,0,0,0.05)]
         `}
             >
@@ -159,45 +158,54 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
                                     )}
 
                                     <div className="space-y-1">
-                                        {section?.items?.map((item) => (
-                                            <div key={item.id}>
-                                                <PermissionWrapper
-                                                    functionalityName={item?.permission?.functionality_name}
-                                                    moduleName={item?.permission?.module_name}
-                                                    actionId={item?.permission?.actions[0]}
-                                                    component={
-                                                        <NavLink
-                                                            to={`/dashboard${item.path}`}
-                                                            end={item.path === ""}
-                                                            className={({ isActive }) => `
-                                        flex items-center gap-3 rounded-xl px-3 py-3 transition-all duration-200 group
-                                        ${isActive
-                                                                    ? 'bg-linear-to-r from-[#E9F2FF] to-transparent text-[#0052CC] font-semibold border-l-4 border-[#0052CC]'
-                                                                    : 'text-[#42526E] hover:bg-[#EBECF0] hover:text-[#172B4D] border-l-4 border-transparent'}
-                                    `}
-                                                            title={!isSidebarOpen ? item.title : ""}
-                                                        >
-                                                            {({ isActive }) => (
-                                                                <>
-                                                                    <div className="flex items-center justify-center w-6 shrink-0">
-                                                                        <FontAwesomeIcon
-                                                                            icon={iconMap[item.title] || faQuestionCircle}
-                                                                            className={isActive ? 'text-[#0052CC]' : 'text-[#6B778C] group-hover:text-[#42526E]'}
-                                                                        />
-                                                                    </div>
+                                        {section?.items?.map((item) => {
+                                            const isDashboard = item.title === "Dashboard" || !item.permission;
+                                            const navLink = (
+                                                <NavLink
+                                                    to={`/dashboard${item.path}`}
+                                                    end={item.path === ""}
+                                                    className={({ isActive }) => `
+                                                         flex items-center gap-3 rounded-xl px-3 py-3 transition-all duration-200 group
+                                                         ${isActive
+                                                            ? 'bg-linear-to-r from-[#E9F2FF] to-transparent text-[#0052CC] font-semibold border-l-4 border-[#0052CC]'
+                                                            : 'text-[#42526E] hover:bg-[#EBECF0] hover:text-[#172B4D] border-l-4 border-transparent'}
+                                                     `}
+                                                    title={!isSidebarOpen ? item.title : ""}
+                                                >
+                                                    {({ isActive }) => (
+                                                        <>
+                                                            <div className="flex items-center justify-center w-6 shrink-0">
+                                                                <FontAwesomeIcon
+                                                                    icon={iconMap[item.title] || faQuestionCircle}
+                                                                    className={isActive ? 'text-[#0052CC]' : 'text-[#6B778C] group-hover:text-[#42526E]'}
+                                                                />
+                                                            </div>
 
-                                                                    {isSidebarOpen && (
-                                                                        <span className="truncate whitespace-nowrap overflow-hidden">
-                                                                            {item.title}
-                                                                        </span>
-                                                                    )}
-                                                                </>
+                                                            {isSidebarOpen && (
+                                                                <span className="truncate whitespace-nowrap overflow-hidden">
+                                                                    {item.title}
+                                                                </span>
                                                             )}
-                                                        </NavLink>
-                                                    }
-                                                />
-                                            </div>
-                                        ))}
+                                                        </>
+                                                    )}
+                                                </NavLink>
+                                            );
+
+                                            return (
+                                                <div key={item.id}>
+                                                    {isDashboard ? (
+                                                        navLink
+                                                    ) : (
+                                                        <PermissionWrapper
+                                                            functionalityName={item?.permission?.functionality_name}
+                                                            moduleName={item?.permission?.module_name}
+                                                            actionId={item?.permission?.actions[0]}
+                                                            component={navLink}
+                                                        />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ))}

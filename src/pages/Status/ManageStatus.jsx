@@ -72,7 +72,7 @@ const ManageStatus = ({ setAlert }) => {
             {/* Toolbar */}
             <div className="flex justify-end">
                 <PermissionWrapper
-                    functionalityName="manage status"
+                    functionalityName="manage ticket status"
                     moduleName="Status List"
                     actionId={1}
                     component={
@@ -121,7 +121,7 @@ const ManageStatus = ({ setAlert }) => {
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div>
                                                 <PermissionWrapper
-                                                    functionalityName="manage status"
+                                                    functionalityName="manage ticket status"
                                                     moduleName="Status List"
                                                     actionId={2}
                                                     component={
@@ -131,7 +131,7 @@ const ManageStatus = ({ setAlert }) => {
                                                     }
                                                 />
                                                 <PermissionWrapper
-                                                    functionalityName="manage status"
+                                                    functionalityName="manage ticket status"
                                                     moduleName="Status List"
                                                     actionId={3}
                                                     component={

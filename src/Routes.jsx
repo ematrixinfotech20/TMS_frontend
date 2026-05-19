@@ -13,6 +13,7 @@ import ManageDepartments from './pages/Departments/ManageDepartments';
 import ManageStatus from './pages/Status/ManageStatus';
 import ManageProjects from './pages/Projects/ManageProjects';
 import ManageTickets from './pages/Tickets/ManageTickets';
+import TicketViewPage from './pages/Tickets/TicketViewPage';
 import ManageRoles from './pages/Roles/ManageRoles';
 import RoleFormPage from './pages/Roles/RoleFormPage';
 import ManageCompanies from './pages/Companies/ManageCompanies';
@@ -56,6 +57,10 @@ const router = createBrowserRouter([
                 element: <ManageTickets />
             },
             {
+                path: "manage-tickets/view/:id",
+                element: <TicketViewPage />
+            },
+            {
                 path: "manage-department",
                 element: <ManageDepartments />
             },
@@ -64,7 +69,7 @@ const router = createBrowserRouter([
                 element: <ManageProjects />
             },
             {
-                path: "manage-status",
+                path: "manage-ticket-status",
                 element: <ManageStatus />
             },
             {

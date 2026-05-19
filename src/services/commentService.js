@@ -12,19 +12,23 @@ export const getAllowedCommentTypes = () => {
 
     switch (rolename) {
         case 'Developer':
-            // Return: Only Open (ID: 1)
+            // Return: Only Private (ID: 1)
             return COMMENT_TYPES.filter(type => [6].includes(type.id));
 
         case 'Manager':
             // Return: Private for Developer (ID: 2), Admin only (ID: 5), Open (ID: 1)
-            return COMMENT_TYPES.filter(type => [1, 2, 5].includes(type.id));
+            return COMMENT_TYPES.filter(type => [1, 2, 5, 6].includes(type.id));
 
         case 'Administrator':
             // Return: Private for manager (ID: 4), Admin only (ID: 5), Open (ID: 1), Private for Customer (ID: 3)
-            return COMMENT_TYPES.filter(type => [1, 3, 4, 5].includes(type.id));
+            return COMMENT_TYPES.filter(type => [1, 3, 4, 5, 6].includes(type.id));
+
+        case 'Customer':
+            // Return: Admin only (ID: 5)
+            return COMMENT_TYPES.filter(type => [5].includes(type.id));
 
         default:
             // Fallback for unknown roles
-            return COMMENT_TYPES.filter(type => [4, 5].includes(type.id));
+            return COMMENT_TYPES.filter(type => [6].includes(type.id));
     }
 };

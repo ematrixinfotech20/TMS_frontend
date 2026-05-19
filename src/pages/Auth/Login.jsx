@@ -46,7 +46,9 @@ const Login = ({ setAlert, setLoading, loading }) => {
                 setAlert({ open: true, message: res?.message || 'Invalid email or password', type: 'error' });
             }
         } catch (err) {
-            setAlert({ open: true, message: err.message || 'Internal Server Error', type: 'error' });
+            console.log("error", err)
+            const errorMessage = err.response?.data?.detail || err.message || 'Internal Server Error';
+            setAlert({ open: true, message: errorMessage, type: 'error' });
         } finally {
             setLoading(false);
         }

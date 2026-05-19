@@ -114,7 +114,7 @@ const ManageTickets = ({ setAlert }) => {
     const handleCopyLink = (e, ticketId) => {
         e.stopPropagation();
         const siteUrl = import.meta.env.REACT_APP_MAIN_SITE_URL || window.location.origin;
-        const link = `${siteUrl}/dashboard/manage-tickets`;
+        const link = `${siteUrl}/dashboard/manage-tickets/view/${ticketId}`;
 
         navigator.clipboard.writeText(link).then(() => {
             setCopiedTicketId(ticketId);
@@ -156,7 +156,7 @@ const ManageTickets = ({ setAlert }) => {
                     {/* 1 in functionalityName is Add actionId */}
                     <PermissionWrapper
                         functionalityName="manage tickets"
-                        moduleName="Tickets List"
+                        moduleName="Tickets"
                         actionId={1}
                         component={
                             <CustomButton
@@ -278,7 +278,7 @@ const ManageTickets = ({ setAlert }) => {
                                                 <div>
                                                     <PermissionWrapper
                                                         functionalityName="manage tickets"
-                                                        moduleName="Tickets List"
+                                                        moduleName="Tickets"
                                                         actionId={2}
                                                         component={
                                                             <IconButton onClick={(e) => { e.stopPropagation(); handleOpen(ticket); }} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
@@ -288,7 +288,7 @@ const ManageTickets = ({ setAlert }) => {
                                                     />
                                                     <PermissionWrapper
                                                         functionalityName="manage tickets"
-                                                        moduleName="Tickets List"
+                                                        moduleName="Tickets"
                                                         actionId={3}
                                                         component={
                                                             <IconButton onClick={(e) => { e.stopPropagation(); openDeleteConfirm(ticket); }} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>

@@ -9,6 +9,7 @@ import KanbanColumn from './KanbanColumn';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import StatusFormDialog from '../Status/StatusFormDialog';
+import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 
 const KanbanBoard = ({ tickets, fetchTickets, setAlert, onAddTicket }) => {
     const [statuses, setStatuses] = useState([]);
@@ -131,21 +132,28 @@ const KanbanBoard = ({ tickets, fetchTickets, setAlert, onAddTicket }) => {
                     ))}
 
                     {/* Add Column button placeholder if needed or just padding */}
-                    <Box
-                        sx={{
-                            flex: '0 0 280px',
-                            padding: '12px',
-                            cursor: 'pointer',
-                            color: '#5E6C84',
-                            '&:hover': { color: '#172B4D', backgroundColor: 'rgba(9, 30, 66, 0.08)', borderRadius: '8px' }
-                        }}
-                        onClick={() => handleOpen()}
-                    >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <FontAwesomeIcon icon={faPlus} size="sm" />
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>Add Column</Typography>
-                        </Box>
-                    </Box>
+                    <PermissionWrapper
+                        functionalityName="manage ticket status"
+                        moduleName="Status List"
+                        actionId={1}
+                        component={
+                            <Box
+                                sx={{
+                                    flex: '0 0 280px',
+                                    padding: '12px',
+                                    cursor: 'pointer',
+                                    color: '#5E6C84',
+                                    '&:hover': { color: '#172B4D', backgroundColor: 'rgba(9, 30, 66, 0.08)', borderRadius: '8px' }
+                                }}
+                                onClick={() => handleOpen()}
+                            >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <FontAwesomeIcon icon={faPlus} size="sm" />
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>Add Column</Typography>
+                                </Box>
+                            </Box>
+                        }
+                    />
                 </Box>
             </DragDropContext>
             <StatusFormDialog

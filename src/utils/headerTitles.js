@@ -4,7 +4,7 @@ export const headerTitles = [
     { title: "Manage Tickets", path: "/dashboard/manage-tickets" },
     { title: "Manage Department", path: "/dashboard/manage-department" },
     { title: "Manage User", path: "/dashboard/manage-user" },
-    { title: "Manage Status", path: "/dashboard/manage-status" },
+    { title: "Manage Ticket Status", path: "/dashboard/manage-ticket-status" },
     { title: "Manage Role", path: "/dashboard/manage-role" },
     { title: "Add Role", path: "/dashboard/manage-role/add" },
     { title: "Edit Role", path: "/dashboard/manage-role/edit/:id" },

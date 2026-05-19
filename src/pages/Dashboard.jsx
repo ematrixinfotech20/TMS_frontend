@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Avatar, Chip, LinearProgress } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -6,92 +6,52 @@ import { faArrowTrendUp, faTicketAlt, faCheckCircle, faTasks, faClock } from '@f
 import { connect } from 'react-redux';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { getCookie, removeCookie } from '../utils/cookieHelper';
+import { getDashboardData } from '../services/authService';
 
 const Dashboard = ({ sessionEndModel }) => {
     const navigate = useNavigate();
     const token = getCookie('tms_token');
+    const [data, setData] = useState(null);
 
     if (!token) {
         navigate('/');
         return null;
     }
 
-    const handleLogout = () => {
-        removeCookie('tms_token');
-        removeCookie('tms_user');
-        navigate('/');
-    };
+    const handleGetDashboardData = async () => {
+        const res = await getDashboardData();
+        if (res.status === 200) {
+            setData(res?.result)
+        }
+    }
 
-    // Mock current date
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
+    useEffect(() => {
+        handleGetDashboardData();
+    }, [])
     return (
         <div className="w-full max-w-7xl mx-auto space-y-8 animate-fade-in-up">
 
             {/* Stat Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Card 1 */}
-                <div className="relative overflow-hidden p-6 bg-white border border-[#DFE1E6] rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h3 className="font-medium text-[#5E6C84] text-sm uppercase tracking-wider">Active Tickets</h3>
-                            <p className="text-4xl font-bold mt-2 text-[#172B4D]">12</p>
-                        </div>
-                        <div className="w-12 h-12 rounded-xl bg-[#E9F2FF] text-[#0052CC] flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FontAwesomeIcon icon={faTicketAlt} size="lg" />
-                        </div>
-                    </div>
-                    <div className="mt-4 flex items-center gap-2 text-sm">
-                        <span className="text-[#36B37E] flex items-center gap-1 font-medium bg-[#E3FCEF] px-2 py-0.5 rounded-md">
-                            <FontAwesomeIcon icon={faArrowTrendUp} /> 8%
-                        </span>
-                        <span className="text-[#5E6C84]">vs last week</span>
-                    </div>
-                    <div className="absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-[#0052CC] to-[#4C9AFF]" />
-                </div>
-
-                {/* Card 2 */}
-                <div className="relative overflow-hidden p-6 bg-white border border-[#DFE1E6] rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h3 className="font-medium text-[#5E6C84] text-sm uppercase tracking-wider">Resolved This Week</h3>
-                            <p className="text-4xl font-bold mt-2 text-[#172B4D]">45</p>
-                        </div>
-                        <div className="w-12 h-12 rounded-xl bg-[#E3FCEF] text-[#36B37E] flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FontAwesomeIcon icon={faCheckCircle} size="lg" />
-                        </div>
-                    </div>
-                    <div className="mt-4 flex items-center gap-2 text-sm">
-                        <span className="text-[#36B37E] flex items-center gap-1 font-medium bg-[#E3FCEF] px-2 py-0.5 rounded-md">
-                            <FontAwesomeIcon icon={faArrowTrendUp} /> 12%
-                        </span>
-                        <span className="text-[#5E6C84]">vs last week</span>
-                    </div>
-                    <div className="absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-[#36B37E] to-[#57D9A3]" />
-                </div>
-
-                {/* Card 3 */}
                 <div className="relative overflow-hidden p-6 bg-white border border-[#DFE1E6] rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group">
                     <div className="flex justify-between items-start">
                         <div>
                             <h3 className="font-medium text-[#5E6C84] text-sm uppercase tracking-wider">Assigned To Me</h3>
-                            <p className="text-4xl font-bold mt-2 text-[#172B4D]">3</p>
+                            <p className="text-4xl font-bold mt-2 text-[#172B4D]">{data?.assigned_tickets_count}</p>
                         </div>
                         <div className="w-12 h-12 rounded-xl bg-[#FFF0B3] text-[#FF991F] flex items-center justify-center group-hover:scale-110 transition-transform">
                             <FontAwesomeIcon icon={faTasks} size="lg" />
                         </div>
                     </div>
-                    <div className="mt-4 flex items-center gap-2 text-sm">
+                    {/* <div className="mt-4 flex items-center gap-2 text-sm">
                         <span className="text-[#5E6C84]">2 high priority</span>
-                    </div>
+                    </div> */}
                     <div className="absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-[#FFAB00] to-[#FFC400]" />
                 </div>
             </div>
 
-            {/* Bottom Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* Recent Activity */}
+            {/* Bottom Section
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">    
                 <div className="lg:col-span-2 bg-white border border-[#DFE1E6] rounded-2xl shadow-sm overflow-hidden flex flex-col">
                     <div className="p-6 border-b border-[#DFE1E6] flex justify-between items-center bg-[#FAFBFC]">
                         <h2 className="text-lg font-semibold text-[#172B4D]">Recent Activity</h2>
@@ -122,9 +82,7 @@ const Dashboard = ({ sessionEndModel }) => {
                             </div>
                         ))}
                     </div>
-                </div>
-
-                {/* Performance or Workload */}
+                </div>                
                 <div className="bg-white border border-[#DFE1E6] rounded-2xl shadow-sm p-6 flex flex-col">
                     <h2 className="text-lg font-semibold text-[#172B4D] mb-6">Current Workload</h2>
 
@@ -169,8 +127,7 @@ const Dashboard = ({ sessionEndModel }) => {
                         </div>
                     </div>
                 </div>
-
-            </div>
+            </div> */}
 
             <ConfirmDialog
                 open={sessionEndModel}

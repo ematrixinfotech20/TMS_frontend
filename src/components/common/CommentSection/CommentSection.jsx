@@ -10,7 +10,7 @@ import { connect } from 'react-redux';
 import { setAlert, setLoading } from '../../../redux/commonReducers/commonReducers';
 import { getAllowedCommentTypes } from '../../../services/commentService';
 
-const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
+const CommentSection = ({ ticketId, setAlert, setLoading, loading, onCommentsCountChange }) => {
     const [comments, setComments] = useState([]);
     const [commentType, setCommentType] = useState(null); // Default: Open
     const currentUser = getUserDetails();
@@ -22,6 +22,9 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
         try {
             const res = await getTicketComments(ticketId);
             setComments(res.result || []);
+            if (onCommentsCountChange) {
+                onCommentsCountChange(res.result?.length || 0);
+            }
         } catch (err) {
             console.error("Failed to fetch comments", err);
         } finally {
@@ -33,9 +36,6 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
         setCommentType(currentUser.rolename === "Developer" ? 6 : currentUser.rolename === "Customer" ? 5 : 1)
         fetchComments();
     }, []);
-
-
-
 
     if (!ticketId) {
         return (
@@ -49,31 +49,12 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
 
     return (
         <div className="bg-white mt-4 overflow-hidden animate-fade-in-up">
-            {/* <div className="p-6 border-b border-[#DFE1E6] flex justify-between items-center bg-[#FAFBFC]">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-[#E9F2FF] text-[#0052CC] flex items-center justify-center">
-                        <FontAwesomeIcon icon={faComments} size="lg" />
-                    </div>
-                    <h2 className="text-xl font-bold text-[#172B4D]">Comments</h2>
-                </div>
-
-                <Button 
-                    variant="outlined" 
-                    size="small" 
-                    onClick={fetchComments} 
-                    startIcon={<FontAwesomeIcon icon={faSync} spin={loading} />}
-                    sx={{ textTransform: 'none', color: '#42526E', borderColor: '#DFE1E6' }}
-                >
-                    Refresh
-                </Button>
-            </div> */}
-
             <div>
                 {/* New Comment Creator */}
                 <div className="py-2">
                     <div className="flex items-center gap-4 mb-4">
                         <FormControl size="small" sx={{ minWidth: 200, bgcolor: 'white' }}>
-                            <InputLabel id="comment-type-label">Visibility</InputLabel>
+                            <InputLabel id="comment-type-label" shrink>Visibility</InputLabel>
                             <Select
                                 labelId="comment-type-label"
                                 value={commentType}

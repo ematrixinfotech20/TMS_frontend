@@ -12,7 +12,7 @@ import { getCookie } from '../../utils/cookieHelper';
 
 const SetPassword = ({ setAlert, setLoading, loading }) => {
     const [searchParams] = useSearchParams();
-    const token = searchParams.get('token');
+    const token = searchParams.get('v');
     const navigate = useNavigate();
 
     const { control, handleSubmit, watch } = useForm({

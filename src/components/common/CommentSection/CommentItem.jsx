@@ -96,11 +96,6 @@ const CommentItem = ({ comment, ticketId, onCommentUpdated, currentUser, setLoad
                         <span className="text-xs text-[#5E6C84] flex items-center gap-1">
                             {formatDate(comment.created_date_time)}
                         </span>
-                        {comment.comment_type_id !== 1 && (
-                            <span className="bg-[#E9F2FF] text-[#0052CC] text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                {comment.comment_type_name}
-                            </span>
-                        )}
                     </div>
 
                     <div className="flex items-center gap-1">

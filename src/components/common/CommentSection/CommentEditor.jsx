@@ -12,7 +12,7 @@ import { getAllowedCommentTypes } from '../../../services/commentService';
 const CommentEditor = ({
     onSubmit,
     initialValue = '',
-    initialVisibility = 1,
+    initialVisibility = 6,
     existingAttachments = [],
     onDeleteAttachment,
     showVisibilitySelector = false,
@@ -45,7 +45,14 @@ const CommentEditor = ({
         if (!data.comment && (!attachmentRef.current || attachmentRef.current.getPendingCount() === 0)) {
             return;
         }
-
+        if (!data.comment_type_id) {
+            setAlert({
+                open: true,
+                type: 'error',
+                message: 'Please select a comment type'
+            });
+            return;
+        }
         try {
             setLoading(true);
             let commentRes;
@@ -61,15 +68,15 @@ const CommentEditor = ({
                     comment_type_id: data.comment_type_id,
                     parent_comment_id: parentId || null
                 };
+
                 const res = await addTicketComment(payload);
                 commentRes = res.result;
             }
-
-            if (commentRes && commentRes.id) {
+            if (commentRes) {
                 // Now upload pending files if any
                 setIsUploadingFiles(true);
                 if (attachmentRef.current) {
-                    await attachmentRef.current.uploadPendingFiles(commentRes.id);
+                    await attachmentRef.current.uploadPendingFiles(commentRes?.id || commentRes?.result?.id);
                 }
                 setIsUploadingFiles(false);
                 reset();
@@ -94,7 +101,7 @@ const CommentEditor = ({
     };
 
     useEffect(() => {
-        setValue('comment_type_id', initialValue);
+        setValue('comment_type_id', initialVisibility);
     }, [initialVisibility, setValue]);
 
     return (
@@ -108,7 +115,10 @@ const CommentEditor = ({
                                 labelId="edit-comment-type-label"
                                 value={commentType}
                                 label="Visibility"
-                                onChange={(e) => setValue('comment_type_id', e.target.value)}
+                                onChange={(e) => {
+                                    console.log(e.target.value);
+                                    setValue('comment_type_id', e.target.value)
+                                }}
                                 sx={{ height: 32, fontSize: '0.8rem' }}
                             >
                                 {commentTypes?.map(type => (
@@ -143,7 +153,6 @@ const CommentEditor = ({
             <div className="flex gap-3 items-center">
                 <CustomButton
                     loading={isUploadingFiles || loading}
-                    onClick={onSubmit}
                     disabled={!watch("comment") || isUploadingFiles || loading}
                     type="submit"
                 >

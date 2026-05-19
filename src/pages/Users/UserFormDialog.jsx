@@ -12,6 +12,7 @@ import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import CompanyFormDialog from '../Companies/CompanyFormDialog';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
+import { getAllRoles } from '../../services/roleService';
 
 const UserFormDialog = ({
     open,
@@ -33,6 +34,7 @@ const UserFormDialog = ({
             is_sms_active: false, is_active: true, report_to: null, company_id: null
         }
     });
+    const [roles, setRoles] = useState([]);
 
     const [loadingData, setLoadingData] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,6 +48,17 @@ const UserFormDialog = ({
 
     const handleClose = () => {
         setOpenDialog(false);
+    };
+
+    const fetchRoles = async () => {
+        try {
+            const res = await getAllRoles();
+            const data = res.result?.map((row) => ({ label: row.name, value: row.id }))
+            setRoles(data);
+        } catch (err) {
+            console.error(err);
+            setAlert({ open: true, message: "Failed to load roles.", type: "error" });
+        }
     };
 
     const fetchCompanies = async () => {
@@ -72,6 +85,7 @@ const UserFormDialog = ({
     useEffect(() => {
         if (open) {
             fetchUsers();
+            fetchRoles()
             fetchCompanies();
             if (editingUserId) {
                 setLoadingData(true);
@@ -120,18 +134,18 @@ const UserFormDialog = ({
             } else {
                 await addUser(data);
             }
-            setAlert({ 
-                open: true, 
-                message: `User ${editingUserId ? 'updated' : 'created'} successfully!`, 
-                type: "success" 
+            setAlert({
+                open: true,
+                message: `User ${editingUserId ? 'updated' : 'created'} successfully!`,
+                type: "success"
             });
             if (onSuccess) onSuccess();
         } catch (err) {
             console.error(err);
-            setAlert({ 
-                open: true, 
-                message: err.message || "Failed to save user.", 
-                type: "error" 
+            setAlert({
+                open: true,
+                message: err.message || "Failed to save user.",
+                type: "error"
             });
         } finally {
             setIsSubmitting(false);
@@ -201,7 +215,7 @@ const UserFormDialog = ({
                             name="role_id"
                             control={control}
                             label="Role"
-                            options={roleOptions}
+                            options={roles}
                             rules={{ required: "Role is required" }}
                         />
 

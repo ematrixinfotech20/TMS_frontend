@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Draggable } from '@hello-pangea/dnd';
 import { Box, Typography, IconButton, Tooltip, Avatar, AvatarGroup } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,8 +11,10 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { connect } from 'react-redux';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 import { deleteTicket } from '../../services/ticketService';
+import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 
 const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) => {
+    const navigate = useNavigate();
     const [isEditing, setIsEditing] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [openDialog, setOpenDialog] = useState(false);
@@ -64,7 +67,17 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                         {...provided.dragHandleProps}
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
-                        onClick={() => handleOpen(ticket.id)}
+                        onClick={() => {
+                            if (PermissionWrapper.hasPermission({
+                                functionalityName: "manage tickets",
+                                moduleName: "Tickets",
+                                actionId: 2
+                            })) {
+                                handleOpen(ticket.id);
+                            } else {
+                                navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
+                            }
+                        }}
                         sx={{
                             backgroundColor: snapshot.isDragging ? '#f4f5f7' : 'white',
                             borderRadius: '4px',
@@ -105,26 +118,40 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                     </Typography>
                                     {isHovered && (
                                         <Box sx={{ position: 'absolute', right: 8, top: 12, display: 'flex', gap: 0.5 }}>
-                                            <IconButton
-                                                size="small"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setIsEditing(true);
-                                                }}
-                                                sx={{ padding: '4px', color: '#6B778C' }}
-                                            >
-                                                <FontAwesomeIcon icon={faEdit} size="xs" />
-                                            </IconButton>
-                                            <IconButton
-                                                size="small"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openDeleteConfirm(ticket);
-                                                }}
-                                                sx={{ padding: '4px', color: '#DE350B', }}
-                                            >
-                                                <FontAwesomeIcon icon={faTrash} size="xs" />
-                                            </IconButton>
+                                            <PermissionWrapper
+                                                functionalityName="manage tickets"
+                                                moduleName="Tickets"
+                                                actionId={2}
+                                                component={
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsEditing(true);
+                                                        }}
+                                                        sx={{ padding: '4px', color: '#6B778C' }}
+                                                    >
+                                                        <FontAwesomeIcon icon={faEdit} size="xs" />
+                                                    </IconButton>
+                                                }
+                                            />
+                                            <PermissionWrapper
+                                                functionalityName="manage tickets"
+                                                moduleName="Tickets"
+                                                actionId={3}
+                                                component={
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openDeleteConfirm(ticket);
+                                                        }}
+                                                        sx={{ padding: '4px', color: '#DE350B', }}
+                                                    >
+                                                        <FontAwesomeIcon icon={faTrash} size="xs" />
+                                                    </IconButton>
+                                                }
+                                            />
                                         </Box>
                                     )}
                                 </Box>

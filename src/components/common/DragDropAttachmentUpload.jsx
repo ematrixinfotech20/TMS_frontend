@@ -7,7 +7,58 @@ import ConfirmDialog from './ConfirmDialog';
 import { getUserDetails } from '../../utils/getUserDetails';
 // Constant for chunk size: 5MB
 const CHUNK_SIZE = 5 * 1024 * 1024;
+const blockedExtensions = [
+    // Dangerous Executable Files
+    "exe",
+    "msi",
+    "bat",
+    "cmd",
+    "com",
+    "scr",
+    "pif",
+    "cpl",
+    "gadget",
+    "msc",
 
+    // Linux / Unix Executables
+    "bin",
+    "run",
+    "appimage",
+    "deb",
+    "rpm",
+
+    // Macro / Office Dangerous Files
+    "docm",
+    "xlsm",
+    "pptm",
+    "xlam",
+    "dotm",
+    "ppam",
+
+    // Registry / System Files
+    "reg",
+    "inf",
+    "sys",
+    "dll",
+    "ocx",
+    "drv",
+
+    // Shortcut / Link Files
+    "lnk",
+    "url",
+    "scf",
+
+    // Email / Attachment Formats
+    "eml",
+    "msg",
+    "mht",
+
+    // Mobile / App Packages
+    "apk",
+    "ipa",
+    "xap",
+    "appx"
+];
 const DragDropAttachmentUpload = forwardRef(({
     onUploadSuccess,
     uploadApiFunction,
@@ -25,12 +76,19 @@ const DragDropAttachmentUpload = forwardRef(({
         const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
         const validFiles = [];
         for (let file of acceptedFiles) {
-            if (file.size > MAX_SIZE) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (blockedExtensions.includes(ext)) {
+                setAlert({
+                    open: true,
+                    message: `File type .${ext} is not allowed.`,
+                    type: 'error'
+                });
+            } else if (file.size > MAX_SIZE) {
                 setAlert({
                     open: true,
                     message: `File "${file.name}" exceeds the 100MB limit.`,
                     type: 'warning'
-                })
+                });
             } else {
                 validFiles.push(file);
             }
@@ -52,7 +110,6 @@ const DragDropAttachmentUpload = forwardRef(({
     useImperativeHandle(ref, () => ({
         getPendingCount: () => pendingFiles.length,
         uploadPendingFiles: async (entityId) => {
-            console.log("pendingFiles", pendingFiles)
             if (pendingFiles.length === 0) return;
 
             // Move pending to uploading
@@ -67,7 +124,6 @@ const DragDropAttachmentUpload = forwardRef(({
                     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
                     let currentChunk = 0;
                     let finalResponse = null;
-                    console.log("fileObj", fileObj)
                     while (currentChunk < totalChunks) {
                         const start = currentChunk * CHUNK_SIZE;
                         const end = Math.min(start + CHUNK_SIZE, file.size);
@@ -177,7 +233,7 @@ const DragDropAttachmentUpload = forwardRef(({
             {pendingFiles.length > 0 && (
                 <div className="mt-4 space-y-2">
                     <h4 className="text-sm font-semibold text-[#172B4D]">Pending Uploads (Will save with ticket)</h4>
-                    {pendingFiles.map(fileObj => (
+                    {pendingFiles?.map(fileObj => (
                         <div key={fileObj.id} className="bg-white border border-[#DFE1E6] p-2 rounded-lg flex justify-between items-center text-sm shadow-sm hover:border-[#8993A4] transition-colors">
                             <span className="font-medium text-[#172B4D] truncate mr-4 flex-1 flex items-center">
                                 <FontAwesomeIcon icon={faFile} className="mr-2 text-[#8993A4]" />
@@ -249,6 +305,7 @@ const DragDropAttachmentUpload = forwardRef(({
                                         >
                                             <FontAwesomeIcon icon={faDownload} />
                                         </button>
+                                        {/* {console.log("att", att)} */}
                                         {(onDeleteExisting && att.created_by === currentUser?.id) && (
                                             <button
                                                 onClick={(e) => handleDeleteClick(e, att.id, att.file_name)}
