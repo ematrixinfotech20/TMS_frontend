@@ -10,6 +10,7 @@ const CustomSelect = ({
     multiple = false,
     withCheckbox = false,
     rules,
+    disabled = false,
     ...props
 }) => {
     return (
@@ -25,6 +26,7 @@ const CustomSelect = ({
                 return (
                     <FormControl fullWidth error={!!error} className="mb-4" {...props}>
                         <Autocomplete
+                            disabled={disabled}
                             size='small'
                             multiple={multiple}
                             options={options}

@@ -5,7 +5,7 @@ import CustomInput from '../../components/common/CustomInput';
 import CustomSelect from '../../components/common/CustomSelect';
 import CustomModalWrapper from '../../components/common/CustomModalWrapper';
 import { getProjectById, addProject, updateProject } from '../../services/projectService';
-import { getCustomers } from '../../services/userService';
+import { getCustomers, getAllAdmins } from '../../services/userService';
 import { CircularProgress } from '@mui/material';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 
@@ -20,10 +20,12 @@ const ProjectFormDialog = ({
         control,
         handleSubmit,
         reset,
+        watch
     } = useForm({
         defaultValues: {
             name: '',
-            client_id: ''
+            client_id: '',
+            project_type: ''
         }
     });
 
@@ -45,16 +47,37 @@ const ProjectFormDialog = ({
         }
     };
 
+    const fetchAdmins = async () => {
+        try {
+            const res = await getAllAdmins();
+            const adminOptions = (res.result || []).map(user => ({
+                value: user.id,
+                label: `${user.first_name} ${user.last_name}`
+            }));
+            setClients(adminOptions);
+        } catch (err) {
+            console.error("Failed to fetch admins", err);
+        }
+    };
+
+    useEffect(() => {
+        if (watch("project_type") === "internal") {
+            fetchAdmins();
+        }
+        if (watch("project_type") === "client") {
+            fetchClients();
+        }
+    }, [watch('project_type')]);
+
     useEffect(() => {
         if (open) {
-            fetchClients();
-
             if (editingProjectId) {
                 setLoadingData(true);
                 getProjectById(editingProjectId).then(res => {
                     reset({
                         name: res.result.name || '',
-                        client_id: res.result.client_id || ''
+                        client_id: res.result.client_id || '',
+                        project_type: res.result.project_type || ''
                     });
                 }).catch(err => {
                     console.error("Failed to load project details", err);
@@ -65,7 +88,8 @@ const ProjectFormDialog = ({
             } else {
                 reset({
                     name: '',
-                    client_id: ''
+                    client_id: '',
+                    project_type: ''
                 });
             }
         }
@@ -79,18 +103,18 @@ const ProjectFormDialog = ({
             } else {
                 await addProject(data);
             }
-            setAlert({ 
-                open: true, 
-                message: `Project ${editingProjectId ? 'updated' : 'created'} successfully!`, 
-                type: "success" 
+            setAlert({
+                open: true,
+                message: `Project ${editingProjectId ? 'updated' : 'created'} successfully!`,
+                type: "success"
             });
             if (onSuccess) onSuccess();
         } catch (err) {
             console.error(err);
-            setAlert({ 
-                open: true, 
-                message: err.message || "Failed to save project.", 
-                type: "error" 
+            setAlert({
+                open: true,
+                message: err.message || "Failed to save project.",
+                type: "error"
             });
         } finally {
             setIsSubmitting(false);
@@ -115,18 +139,31 @@ const ProjectFormDialog = ({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4 mt-2">
-                        <CustomInput
-                            name="name"
-                            control={control}
-                            label="Project Name"
-                            rules={{ required: "Project name is required" }}
-                        />
+                        <div className='grid grid-cols-2 gap-3'>
+                            <CustomInput
+                                name="name"
+                                control={control}
+                                label="Project Name"
+                                rules={{ required: "Project name is required" }}
+                            />
+                            <CustomSelect
+                                name="project_type"
+                                control={control}
+                                label="Project Type"
+                                options={[
+                                    { value: 'internal', label: 'Internal Project' },
+                                    { value: 'client', label: 'Client Project' },
+                                ]}
+                                rules={{ required: "Project type is required" }}
+                            />
+                        </div>
                         <CustomSelect
+                            disabled={!watch("project_type")}
                             name="client_id"
                             control={control}
                             label="Assigned Client"
                             options={clients}
-                            rules={{ required: "Client selection is required" }}
+                            rules={{ required: "Client is required" }}
                         />
                     </div>
                 )}

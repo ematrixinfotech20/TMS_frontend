@@ -81,36 +81,10 @@ const TicketFormModal = ({
         }
     };
 
-    // const transformCompanyData = (companies) => {
-    //     return companies.map(company => ({
-    //         id: `c-${company.id}`,
-    //         name: company.name,
-    //         selectable: false,          // companies are not selectable
-    //         hasChildren: true,
-    //         data: (company.data || []).map(user => ({
-    //             id: `u-${user.id}`,
-    //             name: user.name,
-    //             selectable: true,        // users are selectable
-    //             hasChildren: false
-    //         }))
-    //     }));
-    // };
-
     const fetchUsers = async () => {
         try {
-            // setValue("assignees", []);
             const res = await getUserHierarchy();
             setHierarchyData(res.result || []);
-            // if (userType === 'for_customer') {
-            //     // Use the new companies-with-users endpoint
-            //     const res = await getAllCompaniesWithUsers(); // you need to import this
-            //     const transformed = transformCompanyData(res.result || []);
-            //     setCompanyHierarchyData(transformed);
-            // } else {
-            //     const res = await getUserHierarchy();
-            //     setHierarchyData(res.result || []);
-            //     setCompanyHierarchyData([]); // clear old data
-            // }
         } catch (err) {
             console.error("Failed to load users", err);
         }
@@ -122,6 +96,9 @@ const TicketFormModal = ({
             if (res.status === 200) {
                 const formattedConfigs = res.result?.map(s => ({ value: s.id, label: s.name })) || [];
                 setStatusesList(formattedConfigs);
+                if (!editingTicketId) {
+                    setValue('status_id', formattedConfigs.find((row) => row.label?.toLowerCase() === "todo")?.value || null);
+                }
             }
         } catch (err) {
             console.error("Failed to fetch statuses", err);
@@ -218,19 +195,7 @@ const TicketFormModal = ({
         }
     };
 
-    useEffect(() => {
-        if (userData?.rolename === "Customer") {
-            setValue("user_type", "for_customer");
-        }
-        if (open) {
-            fetchProjects();
-            fetchUsers();
-            fetchDepartments()
-            fetchStatuses();
-        }
-    }, [open]);
-
-    useEffect(() => {
+    const getTicketDetails = async () => {
         if (open) {
             if (editingTicketId) {
                 setLoadingData(true);
@@ -280,7 +245,23 @@ const TicketFormModal = ({
                 setAttachments([]);
             }
         }
-    }, [open, editingTicketId, reset]);
+    }
+
+    useEffect(() => {
+        if (userData?.rolename === "Customer") {
+            setValue("user_type", "for_customer");
+        }
+        if (open) {
+            fetchProjects();
+            fetchUsers();
+            fetchDepartments()
+            fetchStatuses();
+        }
+    }, [open]);
+
+    useEffect(() => {
+        getTicketDetails()
+    }, [editingTicketId]);
 
     return (
         <CustomModalWrapper

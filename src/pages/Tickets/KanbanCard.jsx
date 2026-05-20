@@ -12,8 +12,10 @@ import { connect } from 'react-redux';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 import { deleteTicket } from '../../services/ticketService';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
+import { getUserDetails } from '../../utils/getUserDetails';
 
 const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) => {
+    const userData = getUserDetails()
     const navigate = useNavigate();
     const [isEditing, setIsEditing] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -68,15 +70,16 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
                         onClick={() => {
-                            if (PermissionWrapper.hasPermission({
-                                functionalityName: "manage tickets",
-                                moduleName: "Tickets",
-                                actionId: 2
-                            })) {
-                                handleOpen(ticket.id);
-                            } else {
-                                navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
-                            }
+                            navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
+                            // if (PermissionWrapper.hasPermission({
+                            //     functionalityName: "manage tickets",
+                            //     moduleName: "Tickets",
+                            //     actionId: 2
+                            // }) && ticket.created_by === userData.id) {
+                            //     handleOpen(ticket.id);
+                            // } else {
+                            //     navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
+                            // }
                         }}
                         sx={{
                             backgroundColor: snapshot.isDragging ? '#f4f5f7' : 'white',
@@ -116,7 +119,7 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                     >
                                         {ticket.title}
                                     </Typography>
-                                    {isHovered && (
+                                    {(isHovered && ticket.created_by === userData.id) && (
                                         <Box sx={{ position: 'absolute', right: 8, top: 12, display: 'flex', gap: 0.5 }}>
                                             <PermissionWrapper
                                                 functionalityName="manage tickets"
@@ -126,8 +129,9 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setIsEditing(true);
+                                                            // e.stopPropagation();
+                                                            // setIsEditing(true);
+                                                            navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
                                                         }}
                                                         sx={{ padding: '4px', color: '#6B778C' }}
                                                     >

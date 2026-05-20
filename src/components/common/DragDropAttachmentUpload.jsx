@@ -242,7 +242,7 @@ const DragDropAttachmentUpload = forwardRef(({
                             <button
                                 type="button"
                                 onClick={(e) => { e.preventDefault(); removePendingFile(fileObj.id); }}
-                                className="text-[#DE350B] hover:bg-[#FFEBE6] p-1.5 rounded-md transition-colors"
+                                className="text-[#DE350B] hover:bg-[#FFEBE6] p-1.5 rounded-md transition-colors cursor-pointer"
                                 title="Remove"
                             >
                                 <FontAwesomeIcon icon={faTrash} />
@@ -306,7 +306,7 @@ const DragDropAttachmentUpload = forwardRef(({
                                             <FontAwesomeIcon icon={faDownload} />
                                         </button>
                                         {/* {console.log("att", att)} */}
-                                        {(onDeleteExisting && att.created_by === currentUser?.id) && (
+                                        {/* {(onDeleteExisting && att.created_by === currentUser?.id) && (
                                             <button
                                                 onClick={(e) => handleDeleteClick(e, att.id, att.file_name)}
                                                 className="bg-white text-[#DE350B] hover:text-[#BF2600] w-8 h-8 rounded shadow flex items-center justify-center cursor-pointer"
@@ -314,7 +314,7 @@ const DragDropAttachmentUpload = forwardRef(({
                                             >
                                                 <FontAwesomeIcon icon={faTrash} />
                                             </button>
-                                        )}
+                                        )} */}
                                     </div>
                                 </div>
 

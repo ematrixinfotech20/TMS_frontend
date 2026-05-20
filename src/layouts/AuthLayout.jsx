@@ -2,7 +2,7 @@ import React from 'react';
 
 const AuthLayout = ({ children, title, subtitle }) => {
     return (
-        <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-50">
+        <div className="h-screen overflow-y-auto grid grid-cols-1 lg:grid-cols-2 bg-gray-50">
             {/* Left side: branding / illustration area */}
             <div className="hidden lg:flex flex-col justify-center items-center bg-primary-600 text-white p-12 relative overflow-hidden">
                 {/* Decorative background elements */}

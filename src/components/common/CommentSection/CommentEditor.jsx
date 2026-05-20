@@ -43,6 +43,11 @@ const CommentEditor = ({
 
     const handleFormSubmit = async (data) => {
         if (!data.comment && (!attachmentRef.current || attachmentRef.current.getPendingCount() === 0)) {
+              setAlert({
+                open: true,
+                type: 'error',
+                message: 'Comment cannot be empty'
+            });
             return;
         }
         if (!data.comment_type_id) {

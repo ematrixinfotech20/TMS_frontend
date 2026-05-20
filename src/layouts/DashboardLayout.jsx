@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -14,7 +14,11 @@ import {
     faBell,
     faChartPie,
     faAngleLeft,
-    faUserShield
+    faUserShield,
+    faUser,
+    faCog,
+    faWallet,
+    faTag
 } from '@fortawesome/free-solid-svg-icons';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { getNavigationMenu } from '../services/systemService';
@@ -46,10 +50,67 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
 
     const [menuItems, setMenuItems] = useState([]);
     const [loadingMenu, setLoadingMenu] = useState(true);
+    const [isProfileOpen, setProfileOpen] = useState(false);
 
     const navigate = useNavigate();
     const locaiton = useLocation()
     const currentPath = locaiton?.pathname
+
+    const profileButtonRef = useRef(null);
+    const profileMenuRef = useRef(null);
+
+    const userFullName = `${userDetails?.firstName || ''} ${userDetails?.lastName || ''}`.trim() || 'User';
+    const userRole = userDetails?.rolename || userDetails?.roleName || userDetails?.role || 'Unknown role';
+    const toggleProfileMenu = () => setProfileOpen((prev) => !prev);
+
+    const profileActions = [
+        { id: 'profile', title: 'My Profile', icon: faUser },
+        { id: 'settings', title: 'Settings', icon: faCog },
+        { id: 'billing', title: 'Billing', icon: faWallet },
+        { id: 'pricing', title: 'Pricing', icon: faTag },
+        { id: 'faq', title: 'FAQ', icon: faQuestionCircle },
+    ];
+
+    useEffect(() => {
+        if (!isProfileOpen) return;
+
+        const handleOutsideClick = (event) => {
+            if (
+                profileMenuRef.current &&
+                !profileMenuRef.current.contains(event.target) &&
+                profileButtonRef.current &&
+                !profileButtonRef.current.contains(event.target)
+            ) {
+                setProfileOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [isProfileOpen]);
+
+    const handleProfileAction = (actionId) => {
+        setProfileOpen(false);
+        switch (actionId) {
+            case 'profile':
+                navigate('/dashboard/profile');
+                break;
+            case 'settings':
+                navigate('/dashboard/settings');
+                break;
+            case 'billing':
+                navigate('/dashboard/billing');
+                break;
+            case 'pricing':
+                navigate('/dashboard/pricing');
+                break;
+            case 'faq':
+                navigate('/dashboard/faq');
+                break;
+            default:
+                break;
+        }
+    };
 
     useEffect(() => {
         const matched = headerTitles?.find((h) =>
@@ -236,16 +297,64 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
                     <div>
                         <h1 className="font-bold text-[#172B4D] whitespace-nowrap text-xl">{headerTitle}</h1>
                     </div>
-                    <div className="flex items-center gap-5">
-                        <button className="relative p-2 text-[#5E6C84] hover:text-[#172B4D] hover:bg-[#EBECF0] rounded-full transition-colors cursor-pointer">
+                    <div className="flex items-center gap-5 relative">
+                        {/* <button className="relative p-2 text-[#5E6C84] hover:text-[#172B4D] hover:bg-[#EBECF0] rounded-full transition-colors cursor-pointer">
                             <FontAwesomeIcon icon={faBell} size="lg" />
                             <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#DE350B] rounded-full border-2 border-white"></span>
+                        </button> */}
+                        <button
+                            type="button"
+                            ref={profileButtonRef}
+                            onClick={toggleProfileMenu}
+                            className="w-9 h-9 rounded-full bg-linear-to-br from-[#0052CC] to-[#4C9AFF] text-white flex items-center justify-center font-bold shadow-md hover:shadow-lg hover:scale-105 transition-all ring-2 ring-white cursor-pointer"
+                        >
+                            {userDetails ? `${userDetails?.firstName.split(" ")[0][0] || ''}${userDetails?.lastName.split(" ")[0][0] || ''}` : 'U'}
                         </button>
-                        <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#0052CC] to-[#4C9AFF] text-white flex items-center justify-center font-bold shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all ring-2 ring-white">
-                            {
-                                userDetails?.firstName.split(" ")[0][0] + userDetails?.lastName.split(" ")[0][0]
-                            }
-                        </div>
+
+                        {isProfileOpen && (
+                            <div
+                                ref={profileMenuRef}
+                                className="absolute right-0 top-14 w-72 overflow-hidden rounded-2xl border border-[#DFE1E6] bg-white shadow-[0_30px_80px_rgba(23,42,91,0.12)] z-40"
+                            >
+                                <div className="flex items-center gap-3 border-b border-[#F4F5F7] px-4 py-4 bg-[#F8FAFC]">
+                                    <div className="relative">
+                                        <div className="w-12 h-12 rounded-full bg-[#E8F0FE] text-[#0052CC] flex items-center justify-center font-bold text-lg">
+                                            {userDetails ? `${userDetails?.firstName.split(" ")[0][0] || ''}${userDetails?.lastName.split(" ")[0][0] || ''}` : 'U'}
+                                        </div>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-[#172B4D] truncate">{userFullName}</p>
+                                        <p className="text-xs text-[#6B778C] truncate">{userRole}</p>
+                                    </div>
+                                </div>
+                                {/* <div className="divide-y divide-[#F4F5F7] px-2 py-2">
+                                    {profileActions.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => handleProfileAction(item.id)}
+                                            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-[#172B4D] transition hover:bg-[#F4F5F7]"
+                                        >
+                                            <FontAwesomeIcon icon={item.icon} className="text-[#5E6C84] w-4" />
+                                            <span>{item.title}</span>
+                                        </button>
+                                    ))}
+                                </div> */}
+                                <div className="border-t border-[#F4F5F7] px-4 py-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setProfileOpen(false);
+                                            setShowLogoutConfirm(true);
+                                        }}
+                                        className="flex w-full items-center justify-center rounded bg-[#DE350B] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#bf2b0f] cursor-pointer"
+                                    >
+                                        <FontAwesomeIcon icon={faSignOutAlt} className="mr-2" />
+                                        Log Out
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </header>
 

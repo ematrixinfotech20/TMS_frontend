@@ -14,6 +14,9 @@ import KanbanBoard from './KanbanBoard';
 import { useForm } from 'react-hook-form';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 import CustomSelect from '../../components/common/CustomSelect';
+import DatePickerComponent from '../../components/common/datePickerComponent';
+import dayjs from 'dayjs';
+import CustomInput from '../../components/common/CustomInput';
 
 const formatDate = (iso) => {
     if (!iso) return "-";
@@ -45,13 +48,14 @@ const CustomTooltip = styled(({ className, ...props }) => (
 const ManageTickets = ({ setAlert }) => {
     const [tickets, setTickets] = useState([]);
     const [actionLoading, setActionLoading] = useState(false);
-    const { control, watch } = useForm({
+    const { control, watch, setValue } = useForm({
         defaultValues: {
-            filterType: 0 // 0 for Internal, 1 for Customer
+            filterType: null, // 0 for Internal, 1 for Customer
+            startDueDate: dayjs().startOf('month'),
+            endDueDate: dayjs().endOf('month'),
+            search: "" // For searching by title or description
         }
-    });
-
-    const filterType = watch('filterType');
+    });    
     const [view, setView] = useState('kanban'); // 'table' or 'kanban'
 
     // Dialog state
@@ -64,10 +68,22 @@ const ManageTickets = ({ setAlert }) => {
 
     const fetchTickets = async () => {
         try {
-            const filter = {
-                as_customer: filterType === 0,
-                for_customer: filterType === 1
-            };
+            const filter = {};
+            if (watch("filterType") === 0) {
+                filter.as_customer = true;
+            }
+            if (watch("filterType") === 1) {
+                filter.for_customer = true;
+            }
+            if (watch("startDueDate")) {
+                filter.startDueDate = watch("startDueDate").format('YYYY-MM-DD');
+            }
+            if (watch("endDueDate")) {
+                filter.endDueDate = watch("endDueDate").format('YYYY-MM-DD');
+            }
+            if (watch('search')) {
+                filter.search = watch('search');
+            }
             const res = await filterTickets(filter);
             setTickets(res.result || []);
         } catch (err) {
@@ -78,7 +94,7 @@ const ManageTickets = ({ setAlert }) => {
 
     useEffect(() => {
         fetchTickets();
-    }, [filterType]);
+    }, [watch('filterType'), watch('startDueDate'), watch('endDueDate'), watch('search')]);
 
     const handleOpen = (ticket = null) => {
         setEditingTicketId(ticket ? ticket.id : null);
@@ -138,7 +154,13 @@ const ManageTickets = ({ setAlert }) => {
             </div>
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-                <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+                    <CustomInput
+                        name="search"
+                        control={control}
+                        label="Search by title or description ....."
+                        sx={{ minWidth: 320 }}
+                    />
                     <CustomSelect
                         name="filterType"
                         control={control}
@@ -148,8 +170,30 @@ const ManageTickets = ({ setAlert }) => {
                             { label: 'Customer', value: 1 }
                         ]}
                         className="mb-0"
-                        sx={{ minWidth: 250 }}
+                        sx={{ minWidth: 200 }}
                     />
+
+                    <div className="flex gap-3 w-full sm:w-auto items-center">
+                        <div style={{ maxWidth: 180 }}>
+                            <DatePickerComponent
+                                control={control}
+                                name="startDueDate"
+                                label="Start Date"
+                            />
+                        </div>
+                        <div style={{ maxWidth: 180 }}>
+                            <DatePickerComponent
+                                control={control}
+                                name="endDueDate"
+                                label="End Date"
+                            />
+                        </div>
+                        <div>
+                            <CustomButton onClick={() => { setValue('startDueDate', null); setValue('endDueDate', null); }}>
+                                Clear
+                            </CustomButton>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex justify-end w-full sm:w-auto">

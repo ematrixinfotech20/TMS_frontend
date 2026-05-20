@@ -81,3 +81,13 @@ export const getNonCustomers = async () => {
         throw error;
     }
 };
+
+export const getAllAdmins = async () => {
+    try {
+        const response = await axiosInterceptor.get(`${userURL}/get/all/admins`);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching admins:", error);
+        throw error;
+    }
+};
