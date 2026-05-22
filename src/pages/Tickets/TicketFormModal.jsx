@@ -27,7 +27,8 @@ const TicketFormModal = ({
     onClose,
     editingTicketId,
     setAlert,
-    onSuccess
+    onSuccess,
+    projectId
 }) => {
     const userData = getUserDetails()
     const { control, handleSubmit, reset, watch, setValue } = useForm({
@@ -231,7 +232,7 @@ const TicketFormModal = ({
                 });
             } else {
                 reset({
-                    project_id: null,
+                    project_id: projectId || null,
                     department_id: null,
                     title: '',
                     description: '',
@@ -261,7 +262,7 @@ const TicketFormModal = ({
 
     useEffect(() => {
         getTicketDetails()
-    }, [editingTicketId]);
+    }, [editingTicketId, open, projectId]);
 
     return (
         <CustomModalWrapper
@@ -293,7 +294,7 @@ const TicketFormModal = ({
                 </div>
             )}
             cancelText="Cancel"
-            maxWidth="md" // Make it slightly wider for rich text
+            maxWidth="lg" // Make it slightly wider for rich text
         >
             <form id="ticket-form" onSubmit={handleSubmit(handleFormSubmit)}>
                 {loadingData ? (
@@ -303,11 +304,13 @@ const TicketFormModal = ({
                 ) : (
                     <div className="flex flex-col gap-4 mt-2">
                         <CustomSelect
+                            disabled={!!projectId}
                             name="project_id"
                             control={control}
                             label="Project"
                             options={projects}
                             rules={{ required: "Project is required" }}
+                            
                         />
                         <CustomInput
                             name="title"

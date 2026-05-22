@@ -5,12 +5,13 @@ import Tooltip, { tooltipClasses } from '@mui/material/Tooltip';
 
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faFolderOpen } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faFolderOpen, faTicketAlt } from '@fortawesome/free-solid-svg-icons';
 import { getAllProjects, deleteProject } from '../../services/projectService';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import CustomButton from '../../components/common/CustomButton';
 import ProjectFormDialog from './ProjectFormDialog';
+import TicketFormModal from '../Tickets/TicketFormModal';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 
 const CustomTooltip = styled(({ className, ...props }) => (
@@ -43,6 +44,9 @@ const ManageProjects = ({ setAlert }) => {
     const [openDialog, setOpenDialog] = useState(false);
     const [editingProjectId, setEditingProjectId] = useState(null);
 
+    const [openTicketDialog, setOpenTicketDialog] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState(null);
+
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState({ open: false, project: null });
 
     const fetchProjects = async () => {
@@ -67,6 +71,16 @@ const ManageProjects = ({ setAlert }) => {
     const handleClose = () => {
         setOpenDialog(false);
         setEditingProjectId(null);
+    };
+
+    const handleOpenTicket = (project) => {
+        setSelectedProjectId(project.id);
+        setOpenTicketDialog(true);
+    };
+
+    const handleCloseTicket = () => {
+        setOpenTicketDialog(false);
+        setSelectedProjectId(null);
     };
 
     const openDeleteConfirm = (project) => {
@@ -179,11 +193,23 @@ const ManageProjects = ({ setAlert }) => {
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div>
                                                 <PermissionWrapper
+                                                    functionalityName="manage tickets"
+                                                    moduleName="Tickets"
+                                                    actionId={1}
+                                                    component={
+                                                        <Tooltip title="Add Ticket">
+                                                            <IconButton onClick={() => handleOpenTicket(project)} size="small" sx={{ color: '#36B37E', '&:hover': { backgroundColor: '#E3FCEF' } }}>
+                                                                <FontAwesomeIcon icon={faTicketAlt} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    }
+                                                />
+                                                <PermissionWrapper
                                                     functionalityName="manage project"
                                                     moduleName="Projects List"
                                                     actionId={2}
                                                     component={
-                                                        <IconButton onClick={() => handleOpen(project)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
+                                                        <IconButton onClick={() => handleOpen(project)} size="small" sx={{ color: '#4C9AFF', ml: 1, '&:hover': { backgroundColor: '#E9F2FF' } }}>
                                                             <FontAwesomeIcon icon={faEdit} size="sm" />
                                                         </IconButton>
                                                     }
@@ -216,6 +242,16 @@ const ManageProjects = ({ setAlert }) => {
                     handleClose();
                 }}
                 editingProjectId={editingProjectId}
+            />
+
+            <TicketFormModal
+                open={openTicketDialog}
+                onClose={handleCloseTicket}
+                onSuccess={() => {
+                    fetchProjects();
+                    handleCloseTicket();
+                }}
+                projectId={selectedProjectId}
             />
 
             <ConfirmDialog

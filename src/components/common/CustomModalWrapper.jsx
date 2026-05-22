@@ -16,7 +16,7 @@ const CustomModalWrapper = ({
     cancelText = 'Cancel',
     showFooter = true,
     headerExtra = null,
-    loading
+    loading,
 }) => {
     return (
         <Dialog
@@ -30,7 +30,7 @@ const CustomModalWrapper = ({
                     m: 2,
                     display: 'flex',
                     flexDirection: 'column',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
                 }
             }}
         >

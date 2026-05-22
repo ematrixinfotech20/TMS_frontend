@@ -12,9 +12,10 @@ export const getUserHierarchy = async () => {
     }
 };
 
-export const getAllUsers = async () => {
+export const getAllUsers = async (companyId = null) => {
     try {
-        const response = await axiosInterceptor.get(userURL);
+        const url = companyId ? `${userURL}?company_id=${companyId}` : userURL;
+        const response = await axiosInterceptor.get(url);
         return response.data;
     } catch (error) {
         console.error("Error fetching all users:", error);
@@ -62,9 +63,10 @@ export const deleteUser = async (id) => {
     }
 };
 
-export const getCustomers = async () => {
+export const getCustomers = async (companyId = null) => {
     try {
-        const response = await axiosInterceptor.get(`${userURL}/customers`);
+        const url = companyId ? `${userURL}/customers?company_id=${companyId}` : `${userURL}/customers`;
+        const response = await axiosInterceptor.get(url);
         return response.data;
     } catch (error) {
         console.error("Error fetching customers:", error);

@@ -19,7 +19,11 @@ const UserFormDialog = ({
     onClose,
     onSuccess,
     editingUserId,
-    setAlert
+    setAlert,
+    defaultCompanyId = null,
+    disableCompanySelect = false,
+    disableRoleSelect = false,
+    defaultRoleId = 3
 }) => {
     const {
         control,
@@ -114,13 +118,13 @@ const UserFormDialog = ({
                 });
             } else {
                 reset({
-                    first_name: '', last_name: '', email: '', password: '', role_id: 3,
+                    first_name: '', last_name: '', email: '', password: '', role_id: defaultRoleId ?? 3,
                     city: '', state: '', country: '', zip: '', phone: '',
-                    is_sms_active: false, is_active: true, report_to: null, company_id: null
+                    is_sms_active: false, is_active: true, report_to: null, company_id: defaultCompanyId ?? null
                 });
             }
         }
-    }, [open, editingUserId, reset, setAlert]);
+    }, [open, editingUserId, reset, setAlert, defaultCompanyId, defaultRoleId]);
 
     const handleFormSubmit = async (data) => {
         setIsSubmitting(true);
@@ -167,7 +171,7 @@ const UserFormDialog = ({
             isSubmitting={isSubmitting || loadingData}
             submitText={editingUserId ? 'Save Changes' : 'Submit'}
             cancelText="Cancel"
-            maxWidth="sm"
+            maxWidth="md"
         >
             <form id="user-form" onSubmit={handleSubmit(handleFormSubmit)}>
                 {loadingData ? (
@@ -217,6 +221,7 @@ const UserFormDialog = ({
                             label="Role"
                             options={roles}
                             rules={{ required: "Role is required" }}
+                            disabled={disableRoleSelect}
                         />
 
                         {
@@ -242,18 +247,21 @@ const UserFormDialog = ({
                                             label="Company"
                                             options={companies}
                                             rules={{ required: "Company is required" }}
+                                            disabled={disableCompanySelect}
                                         />
                                     </div>
-                                    <div>
-                                        <Tooltip title="Add Company">
-                                            <IconButton
-                                                size="small"
-                                                onClick={handleOpen}
-                                            >
-                                                <FontAwesomeIcon icon={faPlus} className="text-[#172B4D] font-bold" />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </div>
+                                    {!disableCompanySelect && (
+                                        <div>
+                                            <Tooltip title="Add Company">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={handleOpen}
+                                                >
+                                                    <FontAwesomeIcon icon={faPlus} className="text-[#172B4D] font-bold" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </div>
+                                    )}
                                 </div>
                             )
                         }

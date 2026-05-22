@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { IconButton } from '@mui/material';
+import { IconButton, Tooltip } from '@mui/material';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faBuilding, faFolderPlus } from '@fortawesome/free-solid-svg-icons';
 import { getAllCompanies, deleteCompany } from '../../services/companyService';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import CustomButton from '../../components/common/CustomButton';
 import CompanyFormDialog from './CompanyFormDialog';
+import ProjectFormDialog from '../Projects/ProjectFormDialog';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 
 const ManageCompanies = ({ setAlert }) => {
@@ -16,6 +17,9 @@ const ManageCompanies = ({ setAlert }) => {
 
     const [openDialog, setOpenDialog] = useState(false);
     const [editingCompanyId, setEditingCompanyId] = useState(null);
+
+    const [openProjectDialog, setOpenProjectDialog] = useState(false);
+    const [selectedCompanyId, setSelectedCompanyId] = useState(null);
 
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState({ open: false, company: null });
 
@@ -41,6 +45,16 @@ const ManageCompanies = ({ setAlert }) => {
     const handleClose = () => {
         setOpenDialog(false);
         setEditingCompanyId(null);
+    };
+
+    const handleOpenProject = (company) => {
+        setSelectedCompanyId(company.id);
+        setOpenProjectDialog(true);
+    };
+
+    const handleCloseProject = () => {
+        setOpenProjectDialog(false);
+        setSelectedCompanyId(null);
     };
 
     const onSubmit = async () => {
@@ -160,11 +174,23 @@ const ManageCompanies = ({ setAlert }) => {
                                         <td className="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
                                             <div>
                                                 <PermissionWrapper
+                                                    functionalityName="manage project"
+                                                    moduleName="Projects List"
+                                                    actionId={1}
+                                                    component={
+                                                        <Tooltip title="Add Project">
+                                                            <IconButton onClick={() => handleOpenProject(company)} size="small" sx={{ color: '#36B37E', '&:hover': { backgroundColor: '#E3FCEF' } }}>
+                                                                <FontAwesomeIcon icon={faFolderPlus} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    }
+                                                />
+                                                <PermissionWrapper
                                                     functionalityName="manage company"
                                                     moduleName="Companies List"
                                                     actionId={2}
                                                     component={
-                                                        <IconButton onClick={() => handleOpen(company)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
+                                                        <IconButton onClick={() => handleOpen(company)} size="small" sx={{ color: '#4C9AFF', ml: 1, '&:hover': { backgroundColor: '#E9F2FF' } }}>
                                                             <FontAwesomeIcon icon={faEdit} size="sm" />
                                                         </IconButton>
                                                     }
@@ -195,6 +221,13 @@ const ManageCompanies = ({ setAlert }) => {
                 onSave={onSubmit}
                 editingCompanyId={editingCompanyId}
                 isSubmitting={actionLoading}
+            />
+
+            <ProjectFormDialog
+                open={openProjectDialog}
+                onClose={handleCloseProject}
+                onSuccess={handleCloseProject}
+                companyId={selectedCompanyId}
             />
 
             <ConfirmDialog

@@ -84,7 +84,8 @@ const DepartmentFormDialog = ({
             isSubmitting={isSubmitting || loadingData}
             submitText={editingDepartmentId ? 'Save Changes' : 'Submit'}
             cancelText="Cancel"
-            maxWidth="sm"
+            maxWidth="md"
+            
         >
             <form id="department-form" onSubmit={handleSubmit(handleFormSubmit)}>
                 {loadingData ? (
