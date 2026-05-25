@@ -117,7 +117,7 @@ const TicketFormModal = ({
     const getUserNameById = (id) => {
         const findName = (nodes) => {
             for (const node of nodes) {
-                if (node.id === id) {
+                if (String(node.id) === String(id)) {
                     return node.name;
                 }
                 if (node.data && node.data.length > 0) {
@@ -292,17 +292,14 @@ const TicketFormModal = ({
                     if (ticket.due_date) {
                         formattedDate = dayjs(ticket.due_date);
                     }
-                    const isForCustomer = ticket.for_customer;
                     const formattedAssignees = (ticket.assignees || []).map(a => {
-                        const id = typeof a === 'object' ? a.id : a;
-                        return isForCustomer ? `u-${id}` : id;
+                        return typeof a === 'object' ? a.id : a;
                     });
 
                     const initialSendMail = {};
                     (ticket.assignees || []).forEach(a => {
                         const id = typeof a === 'object' ? a.id : a;
-                        const key = isForCustomer ? `u-${id}` : id;
-                        initialSendMail[key] = a.send_mail || 'Y';
+                        initialSendMail[id] = a.send_mail || 'Y';
                     });
                     setSendMailSettings(initialSendMail);
 

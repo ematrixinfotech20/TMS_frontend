@@ -10,7 +10,7 @@ import {
     faArrowLeft, faCalendarAlt, faClock, faFolder, faBuilding,
     faUser, faUsers, faTag, faDownload, faFileAlt, faComments,
     faPaperclip, faExclamationTriangle, faLink, faCheck, faInfoCircle,
-    faEdit
+    faEdit, faSave
 } from '@fortawesome/free-solid-svg-icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -30,16 +30,85 @@ import RichTextEditor from '../../components/common/RichTextEditor';
 import DragDropAttachmentUpload from '../../components/common/DragDropAttachmentUpload';
 import HierarchySelect from '../../components/common/HierarchySelect';
 import DatePickerComponent from '../../components/common/datePickerComponent';
-import { getUserHierarchy } from '../../services/userService';
+import { getUserHierarchy, getAllUsers } from '../../services/userService';
 import { getAllStatuses } from '../../services/statusService';
 import { deleteTicketAttachment, uploadTicketAttachment } from '../../services/ticketAttachmentService';
+import { upsertTodayTicketWork, getTodayTicketWork } from '../../services/todayTicketWorkService';
 
 dayjs.extend(relativeTime);
 
 const TicketViewPage = ({ setAlert }) => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const userData = getUserDetails()
+    const userData = getUserDetails();
+
+    // Today's Work State
+    const [workHours, setWorkHours] = useState('0');
+    const [workMinutes, setWorkMinutes] = useState('00');
+    const [workNote, setWorkNote] = useState('');
+    const [isSavingWork, setIsSavingWork] = useState(false);
+
+    const hourOptions = Array.from({ length: 11 }, (_, i) => String(i));
+    const minuteOptions = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+    const fetchTodayWork = async () => {
+        if (!userData?.id || !id) return;
+        try {
+            const todayStr = dayjs().format('YYYY-MM-DD');
+            const res = await getTodayTicketWork(userData.id, id, todayStr);
+            if (res.status === 200 && res.result && res.result.length > 0) {
+                const log = res.result[0];
+                setWorkHours(log.hours || '0');
+                setWorkMinutes(log.minutes || '00');
+                setWorkNote(log.note || '');
+            } else {
+                setWorkHours('0');
+                setWorkMinutes('00');
+                setWorkNote('');
+            }
+        } catch (err) {
+            console.error("Failed to load today's work details", err);
+        }
+    };
+
+    const handleSaveTodayWork = async () => {
+        if (!id || !userData?.id) return;
+
+        if (parseInt(workHours, 10) === 0 && parseInt(workMinutes, 10) === 0) {
+            setAlert({ open: true, message: "Please specify work duration.", type: "warning" });
+            return;
+        }
+
+        setIsSavingWork(true);
+        try {
+            const todayStr = dayjs().format('YYYY-MM-DD');
+            const payload = {
+                ticket_id: parseInt(id, 10),
+                date: todayStr,
+                hours: workHours,
+                minutes: workMinutes,
+                note: workNote
+            };
+            const res = await upsertTodayTicketWork(payload);
+            if (res.status === 200) {
+                setAlert({ open: true, message: "Today's work saved successfully!", type: "success" });
+                fetchTodayWork();
+            } else {
+                setAlert({ open: true, message: res.message || "Failed to save work.", type: "error" });
+            }
+        } catch (err) {
+            console.error("Error saving today's work:", err);
+            setAlert({ open: true, message: err.message || "Error saving today's work.", type: "error" });
+        } finally {
+            setIsSavingWork(false);
+        }
+    };
+
+    useEffect(() => {
+        if (id && userData?.id) {
+            fetchTodayWork();
+        }
+    }, [id, userData?.id]);
 
     // Core data state
     const [ticket, setTicket] = useState(null);
@@ -48,6 +117,7 @@ const TicketViewPage = ({ setAlert }) => {
     const [departments, setDepartments] = useState([]);
     const [departmentHierarchy, setDepartmentHierarchy] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [users, setUsers] = useState([]);
 
     // React Hook Form initialization
     const { control, handleSubmit, reset, watch, setValue } = useForm({
@@ -61,7 +131,8 @@ const TicketViewPage = ({ setAlert }) => {
             working_hours: null,
             user_type: 'as_customer',
             assignees: [],
-            status_id: ''
+            status_id: '',
+            owner_id: null
         }
     });
 
@@ -134,10 +205,31 @@ const TicketViewPage = ({ setAlert }) => {
         }
     }, [selectedAssigneeIds]);
 
+    const getUsersByCompanyId = async () => {
+        try {
+            if (!watch('project_id')) {
+                setUsers([]);
+                return;
+            }
+            const selectedCompanyId = projects.find(p => p.id === watch('project_id'))?.company_id;
+            if (selectedCompanyId) {
+                const res = await getAllUsers(selectedCompanyId);
+                const options = res.result?.map(u => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }));
+                setUsers(options || []);
+            }
+        } catch (err) {
+            console.error("Failed to load users", err);
+        }
+    };
+
+    useEffect(() => {
+        getUsersByCompanyId();
+    }, [watch('project_id'), projects]);
+
     const getUserNameById = (id) => {
         const findName = (nodes) => {
             for (const node of nodes) {
-                if (node.id === id) {
+                if (String(node.id) === String(id)) {
                     return node.name;
                 }
                 if (node.data && node.data.length > 0) {
@@ -182,17 +274,14 @@ const TicketViewPage = ({ setAlert }) => {
         }
 
         const formattedDate = ticket.due_date ? dayjs(ticket.due_date) : null;
-        const isForCustomer = ticket.for_customer;
         const formattedAssignees = (ticket.assignees || []).map(a => {
-            const id = typeof a === 'object' ? a.id : a;
-            return isForCustomer ? `u-${id}` : id;
+            return typeof a === 'object' ? a.id : a;
         });
 
         const initialSendMail = {};
         (ticket.assignees || []).forEach(a => {
             const id = typeof a === 'object' ? a.id : a;
-            const key = isForCustomer ? `u-${id}` : id;
-            initialSendMail[key] = a.send_mail || 'Y';
+            initialSendMail[id] = a.send_mail || 'Y';
         });
         setSendMailSettings(initialSendMail);
 
@@ -204,9 +293,10 @@ const TicketViewPage = ({ setAlert }) => {
             description: ticket.description || '',
             due_date: formattedDate,
             working_hours: ticket.working_hours || null,
-            user_type: isForCustomer ? 'for_customer' : 'as_customer',
+            // user_type: isForCustomer ? 'for_customer' : 'as_customer',
             assignees: formattedAssignees,
-            status_id: ticket.status_id || ''
+            status_id: ticket.status_id || '',
+            owner_id: ticket.owner_id || ticket.created_by || null
         });
 
         if (userData?.rolename === "Customer") {
@@ -261,8 +351,13 @@ const TicketViewPage = ({ setAlert }) => {
                 payload.due_date = null;
             }
 
-            payload.as_customer = payload.user_type === 'as_customer';
-            payload.for_customer = payload.user_type === 'for_customer';
+            if (payload.owner_id) {
+                payload.for_customer = true;
+                payload.as_customer = false;
+            } else {
+                payload.as_customer = true;
+                payload.for_customer = false;
+            }
             delete payload.user_type;
 
             const selectedProject = projects.find(p => p.id === data.project_id);
@@ -426,31 +521,31 @@ const TicketViewPage = ({ setAlert }) => {
     const formattedDueDate = ticket.due_date ? dayjs(ticket.due_date).format('MMM D, YYYY') : "-";
 
     return (
-        <div className="max-w-full mx-auto px-4 space-y-6 animate-fade-in font-sans">
+        <div className="max-w-full mx-auto px-4 space-y-4 animate-fade-in font-sans text-slate-800">
             {/* Header Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
                     <Button
                         variant="outlined"
                         size="small"
                         startIcon={<FontAwesomeIcon icon={faArrowLeft} />}
                         onClick={() => navigate('/dashboard/manage-tickets')}
-                        className="normal-case text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                        sx={{ borderRadius: '8px', padding: '6px 14px' }}
+                        className="normal-case text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                        sx={{ borderRadius: '8px', padding: '5px 12px', fontSize: '0.825rem' }}
                     >
                         Back
                     </Button>
                 </div>
                 {userData?.id === ticket?.created_by && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         {isEditing ? (
                             <>
                                 <Button
                                     variant="outlined"
                                     size="small"
                                     onClick={handleCancelEdit}
-                                    className="normal-case text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                    sx={{ borderRadius: '8px', padding: '6px 14px' }}
+                                    className="normal-case text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                                    sx={{ borderRadius: '8px', padding: '5px 12px', fontSize: '0.825rem' }}
                                     disabled={isSubmitting || isUploadingFiles}
                                 >
                                     Cancel
@@ -460,9 +555,9 @@ const TicketViewPage = ({ setAlert }) => {
                                     size="small"
                                     onClick={handleSubmit(handleFormSubmit)}
                                     className="normal-case bg-[#0052CC] hover:bg-[#0747A6] text-white font-medium shadow-sm transition-all"
-                                    sx={{ borderRadius: '8px', padding: '6px 16px' }}
+                                    sx={{ borderRadius: '8px', padding: '5px 14px', fontSize: '0.825rem' }}
                                     disabled={isSubmitting || isUploadingFiles}
-                                    startIcon={(isSubmitting || isUploadingFiles) ? <CircularProgress size={16} color="inherit" /> : null}
+                                    startIcon={(isSubmitting || isUploadingFiles) ? <CircularProgress size={14} color="inherit" /> : null}
                                 >
                                     {isSubmitting ? "Saving..." : "Save Changes"}
                                 </Button>
@@ -474,7 +569,7 @@ const TicketViewPage = ({ setAlert }) => {
                                 startIcon={<FontAwesomeIcon icon={faEdit} />}
                                 onClick={handleStartEdit}
                                 className="normal-case bg-[#0052CC] hover:bg-[#0747A6] text-white font-medium shadow-sm transition-all"
-                                sx={{ borderRadius: '8px', padding: '6px 16px' }}
+                                sx={{ borderRadius: '8px', padding: '5px 14px', fontSize: '0.825rem' }}
                             >
                                 Edit Ticket
                             </Button>
@@ -484,190 +579,176 @@ const TicketViewPage = ({ setAlert }) => {
             </div>
 
             {/* Split Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
                 {/* Main Column */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="lg:col-span-2 space-y-4">
 
                     {/* Title Block */}
-                    <div className="bg-white p-6 border border-gray-200 rounded-2xl shadow-sm space-y-2 hover:border-gray-300 transition-all duration-200">
+                    <div className="bg-white p-4 border-t-2 border-t-[#0052CC] border-x border-b border-slate-100 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05),0_10px_20px_-10px_rgba(0,0,0,0.04)] rounded-xl space-y-2.5 hover:shadow-md transition-all duration-300">
                         {isEditing ? (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 <CustomInput
                                     name="title"
                                     control={control}
                                     label="Ticket Title"
                                     rules={{ required: "Ticket title is required" }}
                                 />
-                                {selectedProjectId && projectTickets.length > 0 && (
-                                    <CustomSelect
-                                        name="parent_ticket_id"
-                                        control={control}
-                                        label="Parent Ticket"
-                                        options={projectTickets}
-                                    />
-                                )}
                             </div>
                         ) : (
                             <>
-                                {ticket.parent_ticket_id && (
-                                    <div 
-                                        className="text-xs font-semibold text-[#0052CC] hover:underline cursor-pointer mb-2 flex items-center gap-1.5 select-none" 
+                                {/* {ticket.parent_ticket_id && (
+                                    <div
+                                        className="text-xs font-semibold text-[#0052CC] hover:underline cursor-pointer mb-1 flex items-center gap-1.5 select-none"
                                         onClick={() => navigate(`/dashboard/manage-tickets/view/${ticket.parent_ticket_id}`)}
                                     >
                                         <FontAwesomeIcon icon={faFolder} size="xs" />
                                         <span>Parent Ticket: {ticket.parent_ticket_no ? `[${ticket.parent_ticket_no}] ` : ''}{ticket.parent_ticket_title}</span>
                                     </div>
-                                )}
-                                <div className="flex items-start justify-between gap-4 p-1">
-                                    <Typography variant="h4" className="font-bold text-gray-900 tracking-tight leading-tight select-none">
-                                        {ticket.title}
+                                )} */}
+                                <div className="flex items-start justify-between gap-4 py-0.5">
+                                    <Typography variant="h5" className="font-bold text-slate-900 tracking-tight leading-tight select-none flex items-center gap-2 flex-wrap">
+                                        {ticket.ticket_no && (
+                                            <span className="bg-blue-50 text-[#0052CC] px-2 py-0.5 rounded text-xs font-mono font-bold border border-blue-100 shadow-sm">
+                                                {ticket.ticket_no}
+                                            </span>
+                                        )}
+                                        <span>{ticket.title}</span>
                                     </Typography>
                                 </div>
-                                <div className="flex items-center gap-4 text-xs text-gray-500 pt-1">
-                                    <div className="flex items-center gap-1.5">
-                                        <FontAwesomeIcon icon={faUser} className="text-gray-400" />
-                                        <span>Opened by <span className="font-semibold text-gray-700">{ticket.created_by_name || 'System'}</span></span>
+                                <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-500 pt-2.5 mt-2 border-t border-slate-50">
+                                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100/80 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors select-none">
+                                        <FontAwesomeIcon icon={faUser} className="text-slate-400" />
+                                        <span>Opened by <span className="font-medium text-slate-700">{ticket.created_by_name || 'System'}</span></span>
                                     </div>
-                                    <span className="text-gray-300">•</span>
-                                    <div>
-                                        <span>Created {dayjs(ticket.created_date).fromNow()}</span>
+                                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100/80 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors select-none">
+                                        <FontAwesomeIcon icon={faCalendarAlt} className="text-slate-400" />
+                                        <span>Created {dayjs(ticket.created_date).format("MM/DD/YYYY")}</span>
                                     </div>
-                                    <span className="text-gray-300">•</span>
-                                    <div className="flex items-center gap-1.5">
-                                        <FontAwesomeIcon icon={faComments} className="text-gray-400" />
-                                        <span>{commentsCount} comments</span>
+                                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100/80 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors select-none">
+                                        <FontAwesomeIcon icon={faComments} className="text-slate-400" />
+                                        <span>{commentsCount} comment{commentsCount !== 1 ? 's' : ''}</span>
                                     </div>
                                 </div>
                             </>
                         )}
                     </div>
 
-                    {/* Description Block */}
-                    <Paper className="p-6 border border-gray-200 rounded-2xl shadow-sm bg-white space-y-4">
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                                    <FontAwesomeIcon icon={faFileAlt} size="sm" />
-                                </div>
-                                <Typography variant="subtitle1" className="font-bold text-gray-800">
-                                    Description
-                                </Typography>
+                    {/* Description & Attachments Block */}
+                    <Paper className="p-4 border border-slate-100 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05),0_10px_20px_-10px_rgba(0,0,0,0.04)] rounded-xl bg-white space-y-3 hover:shadow-md transition-all duration-300">
+                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                            <div className="w-6.5 h-6.5 rounded-lg bg-blue-50/80 text-[#0052CC] flex items-center justify-center flex-shrink-0">
+                                <FontAwesomeIcon icon={faFileAlt} size="xs" />
                             </div>
+                            <span className="font-semibold text-slate-800 text-xs tracking-wider uppercase select-none">
+                                Description
+                                {/* & Attachments */}
+                            </span>
                         </div>
 
-                        <div className="pt-1">
+                        <div className="pt-0.5 space-y-4">
                             {isEditing ? (
-                                <RichTextEditor
-                                    name="description"
-                                    control={control}
-                                    // label="Ticket Description"
-                                    minimal={false}
-                                />
-                            ) : (
-                                ticket.description ? (
-                                    <div
-                                        className="prose prose-sm max-w-none text-gray-800 leading-relaxed min-h-[80px]"
-                                        dangerouslySetInnerHTML={{ __html: ticket.description }}
+                                <>
+                                    <RichTextEditor
+                                        name="description"
+                                        control={control}
+                                        minimal={false}
                                     />
-                                ) : (
-                                    <Typography variant="body2" className="text-gray-400 italic py-4">
-                                        No description provided for this ticket.
-                                    </Typography>
-                                )
+                                    {/* <div className="mt-6 pt-4 border-t border-slate-100">
+                                        <div className="flex items-center gap-2 mb-3 select-none">
+                                            <FontAwesomeIcon icon={faPaperclip} className="text-slate-400" size="sm" />
+                                            <span className="font-semibold text-slate-700 text-xs tracking-wider uppercase">
+                                                Attachments ({editAttachments?.length || 0})
+                                            </span>
+                                        </div>
+                                        <DragDropAttachmentUpload
+                                            ref={attachmentRef}
+                                            uploadApiFunction={uploadTicketAttachment}
+                                            onUploadSuccess={handleUploadSuccess}
+                                            existingAttachments={editAttachments}
+                                            onDeleteExisting={handleDeleteAttachment}
+                                            setAlert={setAlert}
+                                        />
+                                    </div> */}
+                                </>
+                            ) : (
+                                <>
+                                    {ticket.description ? (
+                                        <div
+                                            className="prose prose-sm max-w-none text-slate-800 leading-relaxed max-h-20"
+                                            dangerouslySetInnerHTML={{ __html: ticket.description }}
+                                        />
+                                    ) : (
+                                        <Typography variant="body2" className="text-slate-400 italic py-2">
+                                            No description provided for this ticket.
+                                        </Typography>
+                                    )}
+
+                                    {(ticket.attachments && ticket.attachments.length > 0) && (
+                                        <div className="mt-6 pt-4 border-t border-slate-100">
+                                            <div className="flex items-center gap-2 mb-3 select-none">
+                                                <FontAwesomeIcon icon={faPaperclip} className="text-slate-400" size="sm" />
+                                                <span className="font-semibold text-slate-700 text-xs tracking-wider uppercase">
+                                                    Attachments ({ticket.attachments?.length || 0})
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                                {ticket.attachments.map((file) => (
+                                                    <div
+                                                        key={file.id}
+                                                        className="group/item flex items-center justify-between p-3 border border-gray-100 hover:border-gray-200 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-all duration-200"
+                                                    >
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0 border border-blue-100">
+                                                                <FontAwesomeIcon icon={faFileAlt} size="sm" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    noWrap
+                                                                    className="font-semibold text-gray-700 group-hover/item:text-blue-600 transition-colors"
+                                                                    title={file.file_name}
+                                                                >
+                                                                    {file.file_name}
+                                                                </Typography>
+                                                                {file.created_date && (
+                                                                    <span className="text-[10px] text-gray-400 block mt-0.5">
+                                                                        Uploaded {dayjs(file.created_date).fromNow()}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-1 opacity-60 group-hover/item:opacity-100 transition-opacity">
+                                                            <Tooltip title="Download attachment">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => handleDownload(file.file_URL, file.file_name)}
+                                                                    className="text-gray-500 hover:text-blue-600 hover:bg-white p-1.5"
+                                                                >
+                                                                    <FontAwesomeIcon icon={faDownload} size="sm" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </Paper>
 
-                    {/* <Paper className="p-6 border border-gray-200 rounded-2xl shadow-sm bg-white space-y-4">
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
-                                    <FontAwesomeIcon icon={faPaperclip} size="sm" />
-                                </div>
-                                <Typography variant="subtitle1" className="font-bold text-gray-800">
-                                    Attachments
-                                    <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">
-                                        {isEditing ? (editAttachments?.length || 0) : (ticket.attachments?.length || 0)}
-                                    </span>
-                                </Typography>
-                            </div>
-                        </div>
-
-                        {isEditing ? (
-                            <div className="mt-4 pt-4">
-                                <DragDropAttachmentUpload
-                                    ref={attachmentRef}
-                                    uploadApiFunction={uploadTicketAttachment}
-                                    onUploadSuccess={handleUploadSuccess}
-                                    existingAttachments={editAttachments}
-                                    onDeleteExisting={handleDeleteAttachment}
-                                    setAlert={setAlert}
-                                />
-                            </div>
-                        ) : (
-                            ticket.attachments && ticket.attachments.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                                    {ticket.attachments.map((file) => (
-                                        <div
-                                            key={file.id}
-                                            className="group/item flex items-center justify-between p-3 border border-gray-100 hover:border-gray-200 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-all duration-200"
-                                        >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0 border border-blue-100">
-                                                    <FontAwesomeIcon icon={faFileAlt} size="sm" />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <Typography
-                                                        variant="body2"
-                                                        noWrap
-                                                        className="font-semibold text-gray-700 group-hover/item:text-blue-600 transition-colors"
-                                                        title={file.file_name}
-                                                    >
-                                                        {file.file_name}
-                                                    </Typography>
-                                                    {file.created_date && (
-                                                        <span className="text-[10px] text-gray-400 block mt-0.5">
-                                                            Uploaded {dayjs(file.created_date).fromNow()}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-1 opacity-60 group-hover/item:opacity-100 transition-opacity">
-                                                <Tooltip title="Download attachment">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleDownload(file.file_URL, file.file_name)}
-                                                        className="text-gray-500 hover:text-blue-600 hover:bg-white p-1.5"
-                                                    >
-                                                        <FontAwesomeIcon icon={faDownload} size="sm" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50/20">
-                                    <FontAwesomeIcon icon={faPaperclip} className="text-gray-300 text-3xl mb-2" />
-                                    <Typography variant="body2" className="text-gray-400 italic">
-                                        No attachments uploaded.
-                                    </Typography>
-                                </div>
-                            )
-                        )}
-                    </Paper> */}
-
                     {/* Comments Section */}
-                    <Paper className="p-6 border border-gray-200 rounded-2xl shadow-sm bg-white space-y-4">
-                        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                <FontAwesomeIcon icon={faComments} size="sm" />
+                    <Paper className="p-4 border border-slate-100 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05),0_10px_20px_-10px_rgba(0,0,0,0.04)] rounded-xl bg-white space-y-3 hover:shadow-md transition-all duration-300">
+                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                            <div className="w-6.5 h-6.5 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                                <FontAwesomeIcon icon={faComments} size="xs" />
                             </div>
-                            <Typography variant="subtitle1" className="font-bold text-gray-800">
-                                Comments
-                            </Typography>
+                            <span className="font-semibold text-slate-800 text-xs tracking-wider uppercase">
+                                Comments ({commentsCount})
+                            </span>
                         </div>
 
                         <CommentSection
@@ -678,91 +759,90 @@ const TicketViewPage = ({ setAlert }) => {
                 </div>
 
                 {/* Sidebar Column */}
-                <div className="space-y-6">
+                <div className="space-y-4">
 
                     {/* Sticky Container */}
-                    <div className="lg:sticky lg:top-6 space-y-6">
+                    <div className="lg:sticky lg:top-4 space-y-4">
 
                         {/* Ticket Properties Card */}
-                        <Paper className="border border-gray-200 rounded-2xl shadow-sm bg-white overflow-hidden">
-                            <div className="px-5 py-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
-                                <Typography className="font-bold text-gray-800 text-sm">
-                                    Ticket Attributes
-                                </Typography>
+                        <Paper className="border border-slate-100 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05),0_10px_20px_-10px_rgba(0,0,0,0.04)] rounded-xl bg-white p-4 space-y-4 hover:shadow-md transition-all duration-300">
+                            <div className="border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                                <div className="w-6 h-6 rounded bg-slate-50 text-slate-500 flex items-center justify-center flex-shrink-0">
+                                    <FontAwesomeIcon icon={faInfoCircle} size="xs" />
+                                </div>
+                                <span className="font-semibold text-slate-800 text-xs tracking-wider uppercase">
+                                    Ticket Details
+                                </span>
                             </div>
 
-                            <div className="p-5 space-y-5">
-                                {/* User Type Selector for non-Customers */}
-                                {isEditing && userData?.rolename !== "Customer" && (
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                                            User Type
-                                        </label>
-                                        <Controller
-                                            name="user_type"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <RadioGroup
-                                                    row
-                                                    {...field}
-                                                    onChange={(e) => {
-                                                        field.onChange(e);
-                                                    }}
-                                                >
-                                                    <FormControlLabel value="as_customer" control={<Radio size="small" />} label={<span className="text-xs">As Customer</span>} />
-                                                    <FormControlLabel value="for_customer" control={<Radio size="small" />} label={<span className="text-xs">For Customer</span>} />
-                                                </RadioGroup>
-                                            )}
-                                        />
-                                    </div>
-                                )}
+                            {isEditing ? (
+                                <div className="space-y-3">
+                                    {/* User Type Selector for non-Customers */}
+                                    {userData?.rolename !== "Customer" && (
+                                        <div className="flex flex-col gap-1 pb-1">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                                User Type
+                                            </span>
+                                            <Controller
+                                                name="user_type"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <RadioGroup
+                                                        row
+                                                        {...field}
+                                                    >
+                                                        <FormControlLabel value="as_customer" control={<Radio size="small" />} label={<span className="text-xs">As Customer</span>} />
+                                                        <FormControlLabel value="for_customer" control={<Radio size="small" />} label={<span className="text-xs">For Customer</span>} />
+                                                    </RadioGroup>
+                                                )}
+                                            />
+                                        </div>
+                                    )}
 
-                                {/* Status details */}
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
-                                        <FontAwesomeIcon icon={faTag} size="xs" /> Status
-                                    </label>
-                                    {isEditing ? (
+                                    {/* Status */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                            <FontAwesomeIcon icon={faTag} size="xs" /> Status
+                                        </label>
                                         <CustomSelect
                                             name="status_id"
                                             control={control}
                                             options={statusesList}
                                             rules={{ required: "Status is required" }}
                                         />
-                                    ) : (
-                                        <div className={`flex items-center gap-2 font-semibold border rounded-lg p-2.5 ${getStatusColorClass(ticket.status_name)}`}>
-                                            <span className={`w-2.5 h-2.5 rounded-full ${getStatusDotColor(ticket.status_name)}`} />
-                                            <span className="text-sm">{ticket.status_name || 'Unassigned'}</span>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
 
-                                {/* Project details */}
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
-                                        <FontAwesomeIcon icon={faFolder} size="xs" /> Project
-                                    </label>
-                                    {isEditing ? (
+                                    {/* Project */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                            <FontAwesomeIcon icon={faFolder} size="xs" /> Project
+                                        </label>
                                         <CustomSelect
                                             name="project_id"
                                             control={control}
                                             options={projects.map(p => ({ label: p.name, value: p.id }))}
                                             rules={{ required: "Project is required" }}
                                         />
-                                    ) : (
-                                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-2.5">
-                                            <span>{getProjectName(ticket.project_id)}</span>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
 
-                                {/* Department details */}
-                                {(userData?.rolename !== "Customer" || !isEditing) && (
+                                    {/* Ticket Owner */}
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
-                                            <FontAwesomeIcon icon={faBuilding} size="xs" /> Department
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                            <FontAwesomeIcon icon={faUser} size="xs" /> Ticket Owner
                                         </label>
-                                        {isEditing ? (
+                                        <CustomSelect
+                                            name="owner_id"
+                                            control={control}
+                                            options={users}
+                                        />
+                                    </div>
+
+                                    {/* Department */}
+                                    {userData?.rolename !== "Customer" && (
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                                <FontAwesomeIcon icon={faBuilding} size="xs" /> Department
+                                            </label>
                                             <HierarchySelect
                                                 name="department_id"
                                                 control={control}
@@ -771,20 +851,14 @@ const TicketViewPage = ({ setAlert }) => {
                                                 multiple={false}
                                                 showDivider={false}
                                             />
-                                        ) : (
-                                            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-2.5">
-                                                <span>{getDepartmentName(ticket.department_id)}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                        </div>
+                                    )}
 
-                                {/* Due Date Badge */}
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
-                                        <FontAwesomeIcon icon={faCalendarAlt} size="xs" /> Due Date
-                                    </label>
-                                    {isEditing ? (
+                                    {/* Due Date */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                            <FontAwesomeIcon icon={faCalendarAlt} size="xs" /> Due Date
+                                        </label>
                                         <DatePickerComponent
                                             requiredFiledLabel={true}
                                             setValue={setValue}
@@ -795,87 +869,182 @@ const TicketViewPage = ({ setAlert }) => {
                                             maxDate={null}
                                             required={true}
                                         />
-                                    ) : (
-                                        <div className={`flex items-center justify-between gap-2 text-sm font-semibold border rounded-lg p-2.5 ${isOverdue ? 'bg-red-50 border-red-100 text-red-700' : isToday ? 'bg-yellow-50 border-yellow-100 text-yellow-600' : 'bg-gray-50 border-gray-100 text-gray-700'}`}>
-                                            <span className="flex items-center gap-2">
-                                                <FontAwesomeIcon icon={faCalendarAlt} className={isOverdue ? 'text-red-400' : isToday ? 'text-yellow-400' : 'text-gray-400'} />
-                                                {formattedDueDate}
-                                            </span>
-                                            {relativeDueDate && (
-                                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${isOverdue ? 'bg-red-200 text-red-800' : isToday ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-200 text-gray-600'}`}>
-                                                    {relativeDueDate}
-                                                </span>
-                                            )}
+                                    </div>
+
+                                    {/* Working Hours */}
+                                    {/* {userData?.rolename !== "Customer" && ( */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                            <FontAwesomeIcon icon={faClock} size="xs" /> Estimated Hours
+                                        </label>
+                                        <CustomInput
+                                            name="working_hours"
+                                            control={control}
+                                            onChange={(e, onChange) => {
+                                                let value = e.target.value;
+                                                value = value.replace(/[^0-9.]/g, '');
+                                                const parts = value.split('.');
+                                                if (parts.length > 2) {
+                                                    value = parts[0] + '.' + parts.slice(1).join('');
+                                                }
+                                                if (parts[1] && parts[1].length > 2) {
+                                                    value = parts[0] + '.' + parts[1].substring(0, 2);
+                                                }
+                                                onChange(value);
+                                            }}
+                                        />
+                                    </div>
+                                    {/* )} */}
+
+                                    {selectedProjectId && (
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                                <FontAwesomeIcon icon={faFolder} size="xs" /> Parent Ticket
+                                            </label>
+                                            <CustomSelect
+                                                name="parent_ticket_id"
+                                                control={control}
+                                                label=""
+                                                options={projectTickets}
+                                                disabled={projectTickets.length === 0}
+                                            />
                                         </div>
                                     )}
                                 </div>
+                            ) : (
+                                <div className="grid grid-cols-[100px_1fr] gap-x-2 gap-y-3.5 items-center text-xs">
+                                    {/* Status details */}
+                                    <span className="text-slate-500 font-medium flex items-center gap-1.5 select-none hover:text-[#0052CC] transition-colors">
+                                        <FontAwesomeIcon icon={faTag} size="xs" className="text-slate-400" /> Status
+                                    </span>
+                                    <div className="hover:bg-slate-50/50 p-1 -m-1 rounded transition-colors select-none">
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColorClass(ticket.status_name)}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${getStatusDotColor(ticket.status_name)} animate-pulse`} />
+                                            {ticket.status_name || 'Unassigned'}
+                                        </span>
+                                    </div>
 
-                                {/* Working Hours */}
-                                {isEditing ? (
-                                    userData?.rolename !== "Customer" && (
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
-                                                <FontAwesomeIcon icon={faClock} size="xs" /> Estimated Working Hours
-                                            </label>
-                                            <CustomInput
-                                                name="working_hours"
-                                                control={control}
-                                                onChange={(e, onChange) => {
-                                                    let value = e.target.value;
-                                                    value = value.replace(/[^0-9.]/g, '');
-                                                    const parts = value.split('.');
-                                                    if (parts.length > 2) {
-                                                        value = parts[0] + '.' + parts.slice(1).join('');
-                                                    }
-                                                    if (parts[1] && parts[1].length > 2) {
-                                                        value = parts[0] + '.' + parts[1].substring(0, 2);
-                                                    }
-                                                    onChange(value);
-                                                }}
-                                            />
-                                        </div>
-                                    )
-                                ) : (
-                                    ticket.working_hours && (
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
-                                                <FontAwesomeIcon icon={faClock} size="xs" /> Estimated Working Hours
-                                            </label>
-                                            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-2.5">
-                                                <span>{ticket.working_hours} hours</span>
+                                    {/* Project details */}
+                                    <span className="text-slate-500 font-medium flex items-center gap-1.5 select-none hover:text-[#0052CC] transition-colors">
+                                        <FontAwesomeIcon icon={faFolder} size="xs" className="text-slate-400" /> Project
+                                    </span>
+                                    <div className="hover:bg-slate-50/50 p-1 -m-1 rounded transition-colors select-none">
+                                        <span className="font-semibold text-slate-700">
+                                            {getProjectName(ticket.project_id)}
+                                        </span>
+                                    </div>
+
+                                    {/* Owner details */}
+                                    {ticket.owner_name && (
+                                        <>
+                                            <span className="text-slate-500 font-medium flex items-center gap-1.5 select-none hover:text-[#0052CC] transition-colors">
+                                                <FontAwesomeIcon icon={faUser} size="xs" className="text-slate-400" /> Owner
+                                            </span>
+                                            <div className="hover:bg-slate-50/50 p-1 -m-1 rounded transition-colors select-none">
+                                                <span className="font-semibold text-slate-700">
+                                                    {ticket.owner_name}
+                                                </span>
                                             </div>
-                                        </div>
-                                    )
-                                )}
-                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Department details */}
+                                    {ticket.department_id && (
+                                        <>
+                                            <span className="text-slate-500 font-medium flex items-center gap-1.5 select-none hover:text-[#0052CC] transition-colors">
+                                                <FontAwesomeIcon icon={faBuilding} size="xs" className="text-slate-400" /> Department
+                                            </span>
+                                            <div className="hover:bg-slate-50/50 p-1 -m-1 rounded transition-colors select-none min-w-0">
+                                                <span className="font-semibold text-slate-700 truncate block" title={getDepartmentName(ticket.department_id)}>
+                                                    {getDepartmentName(ticket.department_id)}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Due Date Badge */}
+                                    <span className="text-slate-500 font-medium flex items-center gap-1.5 select-none hover:text-[#0052CC] transition-colors">
+                                        <FontAwesomeIcon icon={faCalendarAlt} size="xs" className="text-slate-400" /> Due Date
+                                    </span>
+                                    <div className="hover:bg-slate-50/50 p-1 -m-1 rounded transition-colors flex flex-wrap items-center gap-1.5 select-none">
+                                        <span className={`font-semibold ${isOverdue ? 'text-rose-600' : isToday ? 'text-amber-600' : 'text-slate-700'}`}>
+                                            {formattedDueDate}
+                                        </span>
+                                        {relativeDueDate && (
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ${isOverdue ? 'bg-rose-50 text-rose-700 border border-rose-100 shadow-sm' : isToday ? 'bg-amber-50 text-amber-700 border border-amber-100 shadow-sm' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
+                                                {relativeDueDate}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Working Hours */}
+                                    {ticket.working_hours && (
+                                        <>
+                                            <span className="text-slate-500 font-medium flex items-center gap-1.5 select-none hover:text-[#0052CC] transition-colors">
+                                                <FontAwesomeIcon icon={faClock} size="xs" className="text-slate-400" /> Estimated Hours
+                                            </span>
+                                            <div className="hover:bg-slate-50/50 p-1 -m-1 rounded transition-colors select-none">
+                                                <span className="font-semibold text-slate-700">
+                                                    {ticket.working_hours} hours
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Parent Tickets details */}
+                                    {ticket.parent_ticket_id && (
+                                        <>
+                                            <span className="text-slate-500 font-medium flex items-center gap-1.5 select-none hover:text-[#0052CC] transition-colors">
+                                                <FontAwesomeIcon icon={faFolder} size="xs" className="text-slate-400" /> Parent Ticket
+                                            </span>
+                                            <div className="hover:bg-slate-50/50 p-1 -m-1 rounded transition-colors select-none min-w-0" onClick={() => navigate(`/dashboard/manage-tickets/view/${ticket.parent_ticket_id}`)}>
+                                                <span className="font-semibold text-[#0052CC] truncate block underline cursor-pointer" title={ticket.parent_ticket_title}>
+                                                    {ticket.parent_ticket_title}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </Paper>
 
-                        {/* Assignees Card */}
-                        <Paper className="border border-gray-200 rounded-2xl shadow-sm bg-white p-5 space-y-4">
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
-                                <FontAwesomeIcon icon={faUsers} size="xs" /> Assignees ({isEditing ? (watch('assignees')?.length || 0) : (ticket.assignees?.length || 0)})
-                            </label>
+                        {/* People Card (Merged Assignees and Watch List) */}
+                        <Paper className="border border-slate-100 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05),0_10px_20px_-10px_rgba(0,0,0,0.04)] rounded-xl bg-white p-4 space-y-3 hover:shadow-md transition-all duration-300">
+                            <div className="border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                                <div className="w-6 h-6 rounded bg-slate-50 text-slate-500 flex items-center justify-center flex-shrink-0">
+                                    <FontAwesomeIcon icon={faUsers} size="xs" />
+                                </div>
+                                <span className="font-semibold text-slate-800 text-xs tracking-wider uppercase">
+                                    People
+                                </span>
+                            </div>
 
                             {isEditing ? (
-                                <>
-                                    <HierarchySelect
-                                        name="assignees"
-                                        control={control}
-                                        label=""
-                                        hierarchyData={hierarchyData}
-                                        rules={{ validate: (value) => value && value.length > 0 || "Assign users is required" }}
-                                        limitTags={0}
-                                    />
+                                <div className="space-y-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                            Assignees ({watch('assignees')?.length || 0})
+                                        </label>
+                                        <HierarchySelect
+                                            name="assignees"
+                                            control={control}
+                                            label=""
+                                            hierarchyData={hierarchyData}
+                                            rules={{ validate: (value) => value && value.length > 0 || "Assign users is required" }}
+                                            limitTags={0}
+                                        />
+                                    </div>
+
                                     {selectedAssigneeIds.length > 0 && (
-                                        <div className="mt-4 p-3 bg-[#F4F5F7] border border-[#DFE1E6] rounded-lg">
-                                            <h4 className="text-xs font-bold text-[#172B4D] mb-2 uppercase tracking-wider font-sans">Watch List</h4>
-                                            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                                        <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
+                                            <h4 className="text-[10px] font-bold text-slate-700 mb-1.5 uppercase tracking-wider font-sans">Watch List</h4>
+                                            <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
                                                 {selectedAssigneeIds.map(id => {
                                                     const name = getUserNameById(id);
                                                     const isChecked = sendMailSettings[id] !== 'N';
                                                     return (
-                                                        <div key={id} className="flex items-center justify-between py-1.5 px-3 bg-white rounded border border-[#DFE1E6] hover:border-[#4c9aff] transition-colors">
-                                                            <span className="text-xs font-medium text-[#172B4D] font-sans">{name}</span>
+                                                        <div key={id} className="flex items-center justify-between py-1 px-2 bg-white rounded border border-slate-200 hover:border-blue-400 transition-colors shadow-sm">
+                                                            <span className="text-xs font-medium text-slate-700 font-sans truncate pr-2">{name}</span>
                                                             <FormControlLabel
                                                                 control={
                                                                     <Checkbox
@@ -886,14 +1055,15 @@ const TicketViewPage = ({ setAlert }) => {
                                                                         }}
                                                                         size="small"
                                                                         sx={{
-                                                                            color: '#42526E',
+                                                                            padding: '2px',
+                                                                            color: '#94a3b8',
                                                                             '&.Mui-checked': {
                                                                                 color: '#0052CC',
                                                                             },
                                                                         }}
                                                                     />
                                                                 }
-                                                                label={<span className="text-[10px] text-[#5E6C84] font-sans">Send Mail</span>}
+                                                                label={<span className="text-[9px] text-slate-500 font-medium font-sans">Send Mail</span>}
                                                                 labelPlacement="start"
                                                                 sx={{ margin: 0 }}
                                                             />
@@ -903,115 +1073,171 @@ const TicketViewPage = ({ setAlert }) => {
                                             </div>
                                         </div>
                                     )}
-                                </>
+                                </div>
                             ) : (
-                                ticket.assignees && ticket.assignees.length > 0 ? (
-                                    <div className="space-y-3 pt-1">
-                                        <AvatarGroup max={5} className="justify-end flex-row-reverse border-gray-100">
-                                            {ticket.assignees.map((user, idx) => (
-                                                <Tooltip key={idx} title={user.name}>
-                                                    <Avatar
-                                                        className="bg-blue-600 hover:scale-105 transition-transform border-2 border-white"
-                                                        sx={{ width: 34, height: 34, fontSize: '0.8rem', fontWeight: 600 }}
-                                                    >
-                                                        {user.name?.split(' ').map(n => n[0]).join('')}
-                                                    </Avatar>
-                                                </Tooltip>
-                                            ))}
-                                        </AvatarGroup>
+                                <div className="space-y-3">
+                                    {ticket.assignees && ticket.assignees.length > 0 ? (
+                                        <>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-semibold text-slate-500">
+                                                    Assignees ({ticket.assignees.length})
+                                                </span>
+                                                <AvatarGroup max={4} className="border-slate-100">
+                                                    {ticket?.assignees?.map((user, idx) => (
+                                                        <Tooltip key={idx} title={user.name}>
+                                                            <Avatar
+                                                                className="bg-primary-500 hover:scale-105 transition-transform border border-white shadow-sm"
+                                                                sx={{ width: 24, height: 24, fontSize: '0.65rem', fontWeight: 600 }}
+                                                            >
+                                                                {user.name?.split(' ').map(n => n[0]).join('')}
+                                                            </Avatar>
+                                                        </Tooltip>
+                                                    ))}
+                                                </AvatarGroup>
+                                            </div>
 
-                                        <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden bg-gray-50/30">
-                                            {ticket.assignees.map((user, idx) => (
-                                                <div key={idx} className="flex items-center gap-2.5 p-2 px-3 hover:bg-gray-50 transition-colors">
-                                                    <Avatar
-                                                        className="bg-blue-50 text-blue-600 font-semibold"
-                                                        sx={{ width: 26, height: 26, fontSize: '0.7rem' }}
-                                                    >
-                                                        {user.name?.split(' ').map(n => n[0]).join('')}
-                                                    </Avatar>
-                                                    <span className="text-xs font-semibold text-gray-700 truncate">
-                                                        {user.name}
-                                                    </span>
-                                                </div>
-                                            ))}
+                                            <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden bg-slate-50/20 shadow-sm">
+                                                {ticket?.assignees?.map((user, idx) => {
+                                                    const isChecked = user.send_mail !== 'N';
+                                                    return (
+                                                        <div key={idx} className="flex items-center justify-between p-1.5 px-2.5 bg-slate-50/40 hover:bg-slate-50 border-b border-slate-100/60 transition-colors last:border-b-0">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <Avatar
+                                                                    className="bg-primary-50 text-[#0052CC] font-semibold border border-blue-100"
+                                                                    sx={{ width: 22, height: 22, fontSize: '0.6rem' }}
+                                                                >
+                                                                    {user.name?.split(' ').map(n => n[0]).join('')}
+                                                                </Avatar>
+                                                                <span className="text-xs font-semibold text-slate-700 truncate max-w-[120px] select-none">
+                                                                    {user.name}
+                                                                </span>
+                                                            </div>
+                                                            <FormControlLabel
+                                                                control={
+                                                                    <Checkbox
+                                                                        checked={isChecked}
+                                                                        onChange={async (e) => {
+                                                                            const newVal = e.target.checked ? 'Y' : 'N';
+                                                                            try {
+                                                                                const res = await updateAssigneeSendMail(ticket.id, user.id, newVal);
+                                                                                if (res.status === 200) {
+                                                                                    setTicket(prev => {
+                                                                                        if (!prev) return prev;
+                                                                                        const updatedAssignees = prev.assignees.map(a =>
+                                                                                            a.id === user.id ? { ...a, send_mail: newVal } : a
+                                                                                        );
+                                                                                        return { ...prev, assignees: updatedAssignees };
+                                                                                    });
+                                                                                    setAlert({ open: true, message: `Watchlist updated successfully`, type: "success" });
+                                                                                } else {
+                                                                                    setAlert({ open: true, message: res.message || "Failed to update watchlist", type: "error" });
+                                                                                }
+                                                                            } catch (err) {
+                                                                                setAlert({ open: true, message: "Error updating watchlist", type: "error" });
+                                                                            }
+                                                                        }}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            padding: '2px',
+                                                                            color: '#94a3b8',
+                                                                            '&.Mui-checked': {
+                                                                                color: '#337fff',
+                                                                            },
+                                                                        }}
+                                                                    />
+                                                                }
+                                                                label={<span className="text-[9px] text-slate-500 font-medium font-sans">Send Email</span>}
+                                                                labelPlacement="start"
+                                                                sx={{ margin: 0 }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="border border-dashed border-slate-200 rounded-lg p-3 text-center bg-slate-50/20">
+                                            <FontAwesomeIcon icon={faUsers} className="text-slate-300 text-lg mb-1" />
+                                            <Typography variant="body2" className="text-slate-400 text-xs italic">
+                                                Unassigned
+                                            </Typography>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="border border-dashed border-gray-200 rounded-xl p-4 text-center bg-gray-50/20">
-                                        <FontAwesomeIcon icon={faUsers} className="text-gray-300 text-2xl mb-1" />
-                                        <Typography variant="body2" className="text-gray-400 italic">
-                                            Unassigned
-                                        </Typography>
-                                    </div>
-                                )
+                                    )}
+                                </div>
                             )}
                         </Paper>
 
-                        {/* Watch List Card */}
-                        {!isEditing && ticket.assignees && ticket.assignees.length > 0 && (
-                            <Paper className="border border-gray-200 rounded-2xl shadow-sm bg-white p-5 space-y-4">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5 font-sans">
-                                    <FontAwesomeIcon icon={faUsers} size="xs" /> Watch List
-                                </label>
-                                <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden bg-gray-50/30">
-                                    {ticket.assignees.map((user, idx) => {
-                                        const isChecked = user.send_mail !== 'N';
-                                        return (
-                                            <div key={idx} className="flex items-center justify-between p-2 px-3 hover:bg-gray-50 transition-colors">
-                                                <div className="flex items-center gap-2.5 min-w-0">
-                                                    <Avatar
-                                                        className="bg-blue-50 text-blue-600 font-semibold"
-                                                        sx={{ width: 26, height: 26, fontSize: '0.7rem' }}
-                                                    >
-                                                        {user.name?.split(' ').map(n => n[0]).join('')}
-                                                    </Avatar>
-                                                    <span className="text-xs font-semibold text-gray-700 truncate font-sans">
-                                                        {user.name}
-                                                    </span>
-                                                </div>
-                                                <FormControlLabel
-                                                    control={
-                                                        <Checkbox
-                                                            checked={isChecked}
-                                                            onChange={async (e) => {
-                                                                const newVal = e.target.checked ? 'Y' : 'N';
-                                                                try {
-                                                                    const res = await updateAssigneeSendMail(ticket.id, user.id, newVal);
-                                                                    if (res.status === 200) {
-                                                                        setTicket(prev => {
-                                                                            if (!prev) return prev;
-                                                                            const updatedAssignees = prev.assignees.map(a => 
-                                                                                a.id === user.id ? { ...a, send_mail: newVal } : a
-                                                                            );
-                                                                            return { ...prev, assignees: updatedAssignees };
-                                                                        });
-                                                                        setAlert({ open: true, message: `Watchlist updated successfully`, type: "success" });
-                                                                    } else {
-                                                                        setAlert({ open: true, message: res.message || "Failed to update watchlist", type: "error" });
-                                                                    }
-                                                                } catch (err) {
-                                                                    setAlert({ open: true, message: "Error updating watchlist", type: "error" });
-                                                                }
-                                                            }}
-                                                            size="small"
-                                                            sx={{
-                                                                color: '#42526E',
-                                                                '&.Mui-checked': {
-                                                                    color: '#0052CC',
-                                                                },
-                                                            }}
-                                                        />
-                                                    }
-                                                    label={<span className="text-[10px] text-[#5E6C84] font-sans">Send Mail</span>}
-                                                    labelPlacement="start"
-                                                    sx={{ margin: 0 }}
-                                                />
-                                            </div>
-                                        );
-                                    })}
+                        {/* Todays Work Card */}
+                        <Paper className="border border-slate-100 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05),0_10px_20px_-10px_rgba(0,0,0,0.04)] rounded-xl bg-white p-4 space-y-4 hover:shadow-md transition-all duration-300">
+                            <div className="border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                                <div className="w-6 h-6 rounded bg-slate-50 text-slate-500 flex items-center justify-center flex-shrink-0">
+                                    <FontAwesomeIcon icon={faClock} size="xs" />
                                 </div>
-                            </Paper>
-                        )}
+                                <span className="font-semibold text-slate-800 text-xs tracking-wider uppercase">
+                                    Todays Work
+                                </span>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="flex gap-2 items-center text-xs">
+                                    <span className="text-slate-500 font-medium w-10 text-right">Hour:</span>
+                                    <div className="flex flex-wrap items-center gap-2 flex-1">
+                                        <select
+                                            value={workHours}
+                                            onChange={(e) => setWorkHours(e.target.value)}
+                                            className="border border-slate-200 rounded p-1 px-1.5 bg-white text-xs outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-500"
+                                        >
+                                            {hourOptions.map(h => (
+                                                <option key={h} value={h}>{h}</option>
+                                            ))}
+                                        </select>
+                                        
+                                        <span className="text-slate-500 font-medium ml-1">Min:</span>
+                                        <select
+                                            value={workMinutes}
+                                            onChange={(e) => setWorkMinutes(e.target.value)}
+                                            className="border border-slate-200 rounded p-1 px-1.5 bg-white text-xs outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-500"
+                                        >
+                                            {minuteOptions.map(m => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))}
+                                        </select>
+                                        
+                                        <input
+                                            type="text"
+                                            value={dayjs().format('YYYY-MM-DD')}
+                                            disabled
+                                            className="border border-slate-100 rounded p-1 px-2 bg-slate-50 text-xs w-24 text-center cursor-not-allowed text-slate-400 font-medium ml-1"
+                                        />
+                                        
+                                        <Tooltip title="Save Work Log">
+                                            <button
+                                                onClick={handleSaveTodayWork}
+                                                disabled={isSavingWork}
+                                                className="w-7 h-7 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-[#0052CC] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 ml-auto"
+                                            >
+                                                {isSavingWork ? (
+                                                    <CircularProgress size={14} color="inherit" />
+                                                ) : (
+                                                    <FontAwesomeIcon icon={faSave} size="sm" />
+                                                )}
+                                            </button>
+                                        </Tooltip>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex gap-2 items-start text-xs">
+                                    <span className="text-slate-500 font-medium pt-1.5 w-10 text-right">Note:</span>
+                                    <textarea
+                                        value={workNote}
+                                        onChange={(e) => setWorkNote(e.target.value)}
+                                        placeholder="Enter details of your work..."
+                                        rows={3}
+                                        className="flex-1 border border-slate-200 rounded p-2 text-xs outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-500 resize-y min-h-[60px]"
+                                    />
+                                </div>
+                            </div>
+                        </Paper>
                     </div>
                 </div>
             </div>

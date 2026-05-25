@@ -242,7 +242,21 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
                                 }
                                 const { key, ...liProps } = props;
                                 return (
-                                    <li key={option.id} {...liProps}>
+                                    <li
+                                        key={option.id}
+                                        {...liProps}
+                                        onClick={(e) => {
+                                            if (multiple) {
+                                                if (option.selectable) {
+                                                    handleToggle(option.id);
+                                                }
+                                            } else {
+                                                if (liProps.onClick) {
+                                                    liProps.onClick(e);
+                                                }
+                                            }
+                                        }}
+                                    >
                                         <OptionContainer depth={option.depth}>
                                             {multiple && option.selectable && (
                                                 <Checkbox

@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import RichTextEditor from '../RichTextEditor';
 import DragDropAttachmentUpload from '../DragDropAttachmentUpload';
-import { Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Button } from '@mui/material';
 import { setAlert, setLoading } from '../../../redux/commonReducers/commonReducers';
 import { connect } from 'react-redux';
 import { addTicketComment, uploadCommentAttachment } from '../../../services/ticketCommentService';
 import CustomButton from '../CustomButton';
 import { getAllowedCommentTypes } from '../../../services/commentService';
+import CustomSelect from '../CustomSelect';
 
 const isHtmlEmpty = (html) => {
     if (!html) return true;
@@ -43,8 +44,6 @@ const CommentEditor = ({
             comment_type_id: initialVisibility
         }
     });
-
-    const commentType = watch('comment_type_id');
 
     const attachmentRef = useRef(null);
     const [isUploadingFiles, setIsUploadingFiles] = useState(false);
@@ -123,25 +122,33 @@ const CommentEditor = ({
             <div className="bg-white overflow-hidden transition-all">
                 {showVisibilitySelector && (
                     <div className="py-3">
-                        <FormControl size="small" sx={{ minWidth: 180 }}>
-                            <InputLabel id="edit-comment-type-label" sx={{ fontSize: '0.8rem' }}>Visibility</InputLabel>
-                            <Select
-                                labelId="edit-comment-type-label"
-                                value={commentType}
-                                label="Visibility"
-                                onChange={(e) => {
-                                    console.log(e.target.value);
-                                    setValue('comment_type_id', e.target.value)
-                                }}
-                                sx={{ height: 32, fontSize: '0.8rem' }}
-                            >
-                                {commentTypes?.map(type => (
-                                    <MenuItem key={type.id} value={type.id} sx={{ fontSize: '0.8rem' }}>
-                                        {type.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        <CustomSelect
+                            name="comment_type_id"
+                            control={control}
+                            label="Visibility"
+                            options={commentTypes?.map(type => ({
+                                label: type.name,
+                                value: type.id
+                            })) || []}
+                            rules={{ required: "Visibility is required" }}
+                            fullWidth={false}
+                            className="mb-0"
+                            sx={{
+                                minWidth: 180,
+                                display: 'inline-block',
+                                '& .MuiInputBase-root': {
+                                    height: 32,
+                                    fontSize: '0.8rem'
+                                },
+                                '& .MuiInputLabel-root': {
+                                    fontSize: '0.8rem',
+                                    transform: 'translate(14px, 6px) scale(1)'
+                                },
+                                '& .MuiInputLabel-shrink': {
+                                    transform: 'translate(14px, -9px) scale(0.75)'
+                                }
+                            }}
+                        />
                     </div>
                 )}
                 <RichTextEditor
