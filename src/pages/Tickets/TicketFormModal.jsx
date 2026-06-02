@@ -347,7 +347,7 @@ const TicketFormModal = ({
 
     const getUsersByCompanyId = async () => {
         try {
-            if (!watch('project_id')) {
+            if (watch('project_id') === null || watch('project_id') === undefined) {
                 setUsers([]);
                 return;
             }
