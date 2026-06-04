@@ -8,3 +8,4 @@ export const departmentURL = `${baseURL}/departments`;
 export const statusURL = `${baseURL}/status`;
 export const roleURL = `${baseURL}/roles`;
 export const companyURL = `${baseURL}/companies`;
+export const reportURL = `${baseURL}/reports`;

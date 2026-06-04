@@ -351,11 +351,13 @@ const TicketFormModal = ({
                 setUsers([]);
                 return;
             }
-            const selectedCompanyId = projects.find(p => p.value === watch('project_id'))?.company_id;
+            const selectedCompanyId = projects?.find(p => p.value === watch('project_id'))?.company_id;
             if (selectedCompanyId) {
                 const res = await getAllUsers(selectedCompanyId);
                 const options = res.result?.map(u => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }));
                 setUsers(options || []);
+            } else {
+                setUsers([]);
             }
         } catch (err) {
             console.error("Failed to load users", err);

@@ -17,6 +17,8 @@ import TicketViewPage from './pages/Tickets/TicketViewPage';
 import ManageRoles from './pages/Roles/ManageRoles';
 import RoleFormPage from './pages/Roles/RoleFormPage';
 import ManageCompanies from './pages/Companies/ManageCompanies';
+import DailyReports from './pages/Reports/DailyReports';
+import MonthlyReport from './pages/Reports/MonthlyReport';
 import Loader from './components/common/loader/loader';
 
 const router = createBrowserRouter([
@@ -87,6 +89,14 @@ const router = createBrowserRouter([
             {
                 path: "manage-company",
                 element: <ManageCompanies />
+            },
+            {
+                path: "dailyreport",
+                element: <DailyReports />
+            },
+            {
+                path: "monthlyreport",
+                element: <MonthlyReport />
             }
         ]
     }

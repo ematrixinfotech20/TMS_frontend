@@ -35,7 +35,8 @@ const UserFormDialog = ({
         defaultValues: {
             first_name: '', last_name: '', email: '', password: '', role_id: 3,
             city: '', state: '', country: '', zip: '', phone: '',
-            is_sms_active: false, is_active: true, report_to: null, company_id: null
+            is_sms_active: false, is_active: true, report_to: null, company_id: null,
+            work_hours: ''
         }
     });
     const [roles, setRoles] = useState([]);
@@ -105,6 +106,7 @@ const UserFormDialog = ({
                     is_active: res.result.is_active ?? true,
                     report_to: res.result.report_to ?? null,
                     company_id: res?.result?.company_id || null,
+                    work_hours: res.result.work_hours ?? '',
                 });
             }).catch(err => {
                 setAlert({ open: true, message: "Failed to load user details.", type: "error" });
@@ -115,7 +117,8 @@ const UserFormDialog = ({
             reset({
                 first_name: '', last_name: '', email: '', password: '', role_id: defaultRoleId ?? 3,
                 city: '', state: '', country: '', zip: '', phone: '',
-                is_sms_active: false, is_active: true, report_to: null, company_id: defaultCompanyId ?? null
+                is_sms_active: false, is_active: true, report_to: null, company_id: defaultCompanyId ?? null,
+                work_hours: ''
             });
         }
     }
@@ -132,14 +135,21 @@ const UserFormDialog = ({
     const handleFormSubmit = async (data) => {
         setIsSubmitting(true);
         try {
+            const submitData = { ...data };
+            if (submitData.work_hours === '' || submitData.work_hours === null || submitData.work_hours === undefined) {
+                submitData.work_hours = null;
+            } else {
+                submitData.work_hours = parseFloat(submitData.work_hours);
+            }
+
             if (editingUserId) {
-                const updateData = { ...data };
+                const updateData = { ...submitData };
                 if (!updateData.password) {
                     delete updateData.password;
                 }
                 await updateUser(editingUserId, updateData);
             } else {
-                await addUser(data);
+                await addUser(submitData);
             }
             setAlert({
                 open: true,
@@ -218,14 +228,41 @@ const UserFormDialog = ({
                             />
                         </div>
 
-                        <CustomSelect
-                            name="role_id"
-                            control={control}
-                            label="Role"
-                            options={roles}
-                            rules={{ required: "Role is required" }}
-                            disabled={disableRoleSelect}
-                        />
+                        <div className="grid grid-cols-2 gap-4 mb-2">
+                            <CustomSelect
+                                name="role_id"
+                                control={control}
+                                label="Role"
+                                options={roles}
+                                rules={{ required: "Role is required" }}
+                                disabled={disableRoleSelect}
+                            />
+                            <CustomInput
+                                name="work_hours"
+                                control={control}
+                                label="Work Hours"
+                                type="text"
+                                onChange={(e) => {
+                                    let value = e.target.value;
+
+                                    // 1. Remove any character that isn't a digit or a dot
+                                    value = value.replace(/[^0-9.]/g, '');
+
+                                    // 2. Prevent multiple dots (keep only the first one)
+                                    const parts = value.split('.');
+                                    if (parts.length > 2) {
+                                        value = parts[0] + '.' + parts.slice(1).join('');
+                                    }
+
+                                    // 3. Limit to 2 digits after the dot
+                                    if (parts[1] && parts[1].length > 2) {
+                                        value = parts[0] + '.' + parts[1].substring(0, 2);
+                                    }
+
+                                    setValue("work_hours", value);
+                                }}
+                            />
+                        </div>
 
                         {
                             watch("role_id") === 2 && (

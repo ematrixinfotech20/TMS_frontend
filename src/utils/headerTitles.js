@@ -9,6 +9,8 @@ export const headerTitles = [
     { title: "Add Role", path: "/dashboard/manage-role/add" },
     { title: "Edit Role", path: "/dashboard/manage-role/edit/:id" },
     { title: "Manage Company", path: "/dashboard/manage-company" },
+    { title: "Daily Report", path: "/dashboard/dailyreport" },
+    { title: "Monthly Report", path: "/dashboard/monthlyreport" },
 ];
 
 export const matchRoute = (routePath, currentPath) => {

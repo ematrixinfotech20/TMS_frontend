@@ -18,7 +18,8 @@ import {
     faUser,
     faCog,
     faWallet,
-    faTag
+    faTag,
+    faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { getNavigationMenu } from '../services/systemService';
@@ -38,7 +39,10 @@ const iconMap = {
     "Manage Tickets": faTicketAlt,
     "Manage User": faUsers,
     "Manage Role": faUserShield,
-    "Manage Company": faBuilding
+    "Manage Company": faBuilding,
+    "Manage Reports": faChartLine,
+    "Daily Report": faChartLine,
+    "Monthly Report": faChartLine
 };
 
 const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
@@ -221,6 +225,9 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
                                     <div className="space-y-1">
                                         {section?.items?.map((item) => {
                                             const isDashboard = item.title === "Dashboard" || !item.permission;
+                                            const displayTitle = (item?.permission?.functionality_name === "manage reports" && item?.permission?.module_name)
+                                                ? item.permission.module_name
+                                                : item.title;
                                             const navLink = (
                                                 <NavLink
                                                     to={`/dashboard${item.path}`}
@@ -231,20 +238,20 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
                                                             ? 'bg-linear-to-r from-[#E9F2FF] to-transparent text-[#0052CC] font-semibold border-l-4 border-[#0052CC]'
                                                             : 'text-[#42526E] hover:bg-[#EBECF0] hover:text-[#172B4D] border-l-4 border-transparent'}
                                                      `}
-                                                    title={!isSidebarOpen ? item.title : ""}
+                                                    title={!isSidebarOpen ? displayTitle : ""}
                                                 >
                                                     {({ isActive }) => (
                                                         <>
                                                             <div className="flex items-center justify-center w-6 shrink-0">
                                                                 <FontAwesomeIcon
-                                                                    icon={iconMap[item.title] || faQuestionCircle}
+                                                                    icon={iconMap[displayTitle] || iconMap[item.title] || faQuestionCircle}
                                                                     className={isActive ? 'text-[#0052CC]' : 'text-[#6B778C] group-hover:text-[#42526E]'}
                                                                 />
                                                             </div>
 
                                                             {isSidebarOpen && (
                                                                 <span className="truncate whitespace-nowrap overflow-hidden">
-                                                                    {item.title}
+                                                                    {displayTitle}
                                                                 </span>
                                                             )}
                                                         </>
